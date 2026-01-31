@@ -184,17 +184,36 @@ export async function handleAuthRoutes(
       const hasAdminPassword = !!env.ADMIN_PASSWORD;
       const adminPasswordLength = env.ADMIN_PASSWORD ? env.ADMIN_PASSWORD.length : 0;
       const inputPasswordLength = body.password ? body.password.length : 0;
+      const passwordsMatch = body.password === env.ADMIN_PASSWORD;
       
+      // 详细的调试日志（用于排查 Dashboard Variables 问题）
       console.log('Admin login attempt:', {
         hasAdminPassword,
         adminPasswordLength,
         inputPasswordLength,
-        passwordsMatch: body.password === env.ADMIN_PASSWORD,
+        passwordsMatch,
+        // 检查所有环境变量（不输出实际值）
+        envKeys: Object.keys(env).filter(key => key.includes('ADMIN') || key.includes('PASSWORD')),
+        adminPasswordType: typeof env.ADMIN_PASSWORD,
+        adminPasswordValue: env.ADMIN_PASSWORD ? '[REDACTED]' : 'undefined',
       });
 
       // 验证管理员密码
-      if (body.password !== env.ADMIN_PASSWORD) {
-        return createErrorResponse('Invalid password', 'INVALID_PASSWORD', 401);
+      if (!passwordsMatch) {
+        // 返回详细的调试信息（仅在生产环境调试时使用）
+        return createErrorResponse(
+          'Invalid password', 
+          'INVALID_PASSWORD', 
+          401,
+          {
+            debug: {
+              hasAdminPassword,
+              adminPasswordLength,
+              inputPasswordLength,
+              // 注意：不返回实际密码值
+            }
+          }
+        );
       }
 
       // 生成 session token

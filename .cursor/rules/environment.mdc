@@ -29,11 +29,40 @@ globs:
 1. **统一验证**: 使用 `src/utils/env.ts` 中的 `validateEnv()` 函数验证所有必需的环境变量
 2. **类型安全**: 使用 `src/types/env.d.ts` 中的 `Env` 接口定义环境变量类型
 3. **开发环境**: 使用 `.dev.vars` 文件配置开发环境变量（不要提交到 Git）
-4. **生产环境**: 使用 Wrangler secrets 管理生产环境密钥：
+4. **生产环境配置方式**:
+   
+   **方式一：Secrets（推荐）**
+   - 使用命令行配置，加密存储，更安全：
    ```bash
    npx wrangler secret put VARIABLE_NAME
    ```
+   - 优点：加密存储，立即生效，无需重新部署
+   
+   **方式二：Variables（Dashboard）**
+   - 在 Cloudflare Dashboard > Workers & Pages > [你的Worker] > Settings > Variables 中配置
+   - 注意：
+     - 变量名必须完全匹配（大小写敏感）
+     - 配置后**必须重新部署**才能生效
+     - 明文存储（不推荐用于敏感信息）
+     - 位置：Settings > Variables and Secrets > Variables 标签
+   
 5. **获取变量**: 使用 `getEnvVar()` 函数获取环境变量（带默认值支持）
+
+## Variables vs Secrets 的区别
+
+| 特性 | Variables（变量） | Secrets（机密） |
+|------|------------------|----------------|
+| 配置方式 | Dashboard 界面 | `wrangler secret put` 命令 |
+| 存储方式 | 明文存储 | 加密存储 |
+| 生效时间 | 需要重新部署 | 立即生效 |
+| 安全性 | 较低（明文） | 较高（加密） |
+| 适用场景 | 非敏感配置 | 敏感信息（密码、密钥） |
+| 推荐使用 | 一般配置 | **敏感信息必须使用** |
+
+**重要提示**：
+- 对于敏感信息（如密码、密钥），**必须使用 Secrets**，不要使用 Variables
+- Dashboard 中的 Variables 配置后，必须重新部署 Worker 才能生效
+- 如果使用 Variables 后不生效，检查是否已重新部署
 
 ## 环境变量配置示例
 

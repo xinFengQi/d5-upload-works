@@ -42,6 +42,7 @@ export async function handleLoginPage(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 - D5 Works</title>
+  <link rel="icon" type="image/png" href="https://cn.official.d5render.com/wp-content/uploads/d5-logo-100.png">
   <style>
     * {
       margin: 0;

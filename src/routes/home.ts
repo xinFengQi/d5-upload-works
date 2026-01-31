@@ -16,6 +16,7 @@ export async function handleHomeRoute(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2026年会作品投票 - D5 Works</title>
+  <link rel="icon" type="image/png" href="https://cn.official.d5render.com/wp-content/uploads/d5-logo-100.png">
   <style>
     * {
       margin: 0;
@@ -1067,12 +1068,12 @@ export async function handleHomeRoute(
             <button class="dropdown-item" onclick="logout()">退出登录</button>
           </div>
         </div>
-        <button class="btn btn-outline" id="authBtn" onclick="checkAuth()">登录</button>
+        <button class="btn btn-outline" id="authBtn" onclick="window.location.href='/login'">登录</button>
         <a href="/upload" class="btn btn-primary">上传作品</a>
         <a href="/vote-result" class="btn btn-outline">投票结果</a>
         <a href="/screen" class="btn btn-outline">大屏展示</a>
         <a href="/multi-screen" class="btn btn-outline">多屏播放</a>
-        <a href="/admin" class="btn btn-outline" id="adminLink" style="display: none;">管理</a>
+        <a href="/admin" class="btn btn-outline" id="adminLink" style="display: none;" onclick="handleAdminClick(event)">管理</a>
       </div>
       <button class="menu-toggle" id="menuToggle" onclick="toggleSideMenu()" aria-label="打开菜单">☰</button>
     </div>
@@ -1094,12 +1095,12 @@ export async function handleHomeRoute(
           <button class="dropdown-item" onclick="logout()">退出登录</button>
         </div>
       </div>
-      <button class="btn btn-outline" id="sideAuthBtn" onclick="checkAuth(); closeSideMenu();">登录</button>
+      <button class="btn btn-outline" id="sideAuthBtn" onclick="window.location.href='/login'; closeSideMenu();">登录</button>
       <a href="/upload" class="btn btn-primary" onclick="closeSideMenu()">上传作品</a>
       <a href="/vote-result" class="btn btn-outline" onclick="closeSideMenu()">投票结果</a>
       <a href="/screen" class="btn btn-outline" onclick="closeSideMenu()">大屏展示</a>
       <a href="/multi-screen" class="btn btn-outline" onclick="closeSideMenu()">多屏播放</a>
-      <a href="/admin" class="btn btn-outline" id="sideAdminLink" style="display: none;" onclick="closeSideMenu()">管理</a>
+      <a href="/admin" class="btn btn-outline" id="sideAdminLink" style="display: none;" onclick="handleAdminClick(event); closeSideMenu();">管理</a>
     </div>
   </div>
 
@@ -1146,11 +1147,65 @@ export async function handleHomeRoute(
     let userVoteCount = 0;
     const MAX_VOTES = 10;
 
-    // 检查认证状态
+    // 处理管理按钮点击（优化：已登录时直接跳转，避免先显示登录页面）
+    async function handleAdminClick(event) {
+      event.preventDefault();
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        // 没有 token，跳转到登录页面
+        window.location.href = '/login';
+        return;
+      }
+      
+      // 有 token，先验证是否是管理员（使用缓存的用户信息，避免重复请求）
+      if (currentUser && currentUser.role === 'admin') {
+        // 已经是管理员，直接跳转
+        window.location.href = '/admin';
+        return;
+      }
+      
+      // 没有缓存或缓存不完整，验证 token
+      try {
+        const response = await fetch('/auth/me', {
+          headers: {
+            'Authorization': \`Bearer \${token}\`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data.role === 'admin') {
+            // 是管理员，直接跳转到管理页面
+            window.location.href = '/admin';
+          } else {
+            // 不是管理员，跳转到登录页面
+            window.location.href = '/login';
+          }
+        } else {
+          // token 无效，跳转到登录页面
+          localStorage.removeItem('auth_token');
+          window.location.href = '/login';
+        }
+      } catch (error) {
+        console.error('验证管理员身份失败:', error);
+        window.location.href = '/login';
+      }
+    }
+
+    // 检查认证状态（不自动跳转，只更新UI）
     async function checkAuth() {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        window.location.href = '/login';
+        // 没有token，显示登录按钮，隐藏用户菜单
+        document.getElementById('authBtn').style.display = 'inline-flex';
+        document.getElementById('userMenu').style.display = 'none';
+        document.getElementById('sideAuthBtn').style.display = 'inline-flex';
+        document.getElementById('sideUserMenu').style.display = 'none';
+        document.getElementById('adminLink').style.display = 'none';
+        document.getElementById('sideAdminLink').style.display = 'none';
+        // 仍然加载作品列表（允许未登录用户浏览）
+        loadWorks();
         return;
       }
 
@@ -1189,36 +1244,50 @@ export async function handleHomeRoute(
             
             loadWorks();
           } else {
+            // token无效，清除并显示登录按钮
             localStorage.removeItem('auth_token');
-            window.location.href = '/login';
+            document.getElementById('authBtn').style.display = 'inline-flex';
+            document.getElementById('userMenu').style.display = 'none';
+            document.getElementById('sideAuthBtn').style.display = 'inline-flex';
+            document.getElementById('sideUserMenu').style.display = 'none';
+            loadWorks();
           }
         } else {
+          // token无效，清除并显示登录按钮
           localStorage.removeItem('auth_token');
-          window.location.href = '/auth/dingtalk';
+          document.getElementById('authBtn').style.display = 'inline-flex';
+          document.getElementById('userMenu').style.display = 'none';
+          document.getElementById('sideAuthBtn').style.display = 'inline-flex';
+          document.getElementById('sideUserMenu').style.display = 'none';
+          loadWorks();
         }
       } catch (error) {
         console.error('认证检查失败:', error);
-        window.location.href = '/auth/dingtalk';
+        // 出错时也清除token并显示登录按钮
+        localStorage.removeItem('auth_token');
+        document.getElementById('authBtn').style.display = 'inline-flex';
+        document.getElementById('userMenu').style.display = 'none';
+        document.getElementById('sideAuthBtn').style.display = 'inline-flex';
+        document.getElementById('sideUserMenu').style.display = 'none';
+        loadWorks();
       }
     }
 
-    // 加载作品列表
+    // 加载作品列表（允许未登录用户浏览）
     async function loadWorks() {
       const token = localStorage.getItem('auth_token');
-      if (!token) {
-        document.getElementById('worksGrid').innerHTML = '<div class="empty-state"><p>请先登录</p></div>';
-        return;
-      }
 
       document.getElementById('loading').classList.add('active');
       document.getElementById('emptyState').style.display = 'none';
 
       try {
-        // 获取作品列表
+        // 获取作品列表（不需要认证）
+        const headers = token ? {
+          'Authorization': \`Bearer \${token}\`
+        } : {};
+        
         const worksResponse = await fetch('/api/works?page=1&limit=100', {
-          headers: {
-            'Authorization': \`Bearer \${token}\`
-          }
+          headers: headers
         });
 
         if (worksResponse.ok) {
@@ -1230,48 +1299,82 @@ export async function handleHomeRoute(
               document.getElementById('emptyState').style.display = 'block';
               document.getElementById('worksGrid').innerHTML = '';
             } else {
-              // 获取每个作品的投票统计
+              // 获取每个作品的投票统计（如果有token则获取详细统计，否则只获取投票数）
               const worksWithVotes = await Promise.all(
                 works.map(async (work) => {
-                  const statsResponse = await fetch(\`/api/vote/stats?workId=\${work.id}\`, {
+                  if (token) {
+                    // 已登录：获取完整统计信息
+                    try {
+                      const statsResponse = await fetch(\`/api/vote/stats?workId=\${work.id}\`, {
+                        headers: {
+                          'Authorization': \`Bearer \${token}\`
+                        }
+                      });
+                      
+                      if (statsResponse.ok) {
+                        const stats = await statsResponse.json();
+                        if (stats.success) {
+                          return {
+                            ...work,
+                            voteCount: stats.data.voteCount || 0,
+                            hasVoted: stats.data.hasVoted || false,
+                            isOwner: work.userId === currentUser?.userid
+                          };
+                        }
+                      }
+                    } catch (error) {
+                      console.error(\`获取作品 \${work.id} 的投票统计失败:\`, error);
+                    }
+                  }
+                  
+                  // 未登录或获取失败：尝试通过 API 获取投票数（不传 token）
+                  try {
+                    const statsResponse = await fetch(\`/api/vote/stats?workId=\${work.id}\`);
+                    if (statsResponse.ok) {
+                      const stats = await statsResponse.json();
+                      if (stats.success) {
+                        return {
+                          ...work,
+                          voteCount: stats.data.voteCount || 0,
+                          hasVoted: false,
+                          isOwner: false
+                        };
+                      }
+                    }
+                  } catch (error) {
+                    console.error(\`获取作品 \${work.id} 的投票数失败:\`, error);
+                  }
+                  
+                  // 如果获取失败，使用默认值
+                  return {
+                    ...work,
+                    voteCount: 0,
+                    hasVoted: false,
+                    isOwner: false
+                  };
+                })
+              );
+
+              // 获取用户已投票数量（仅当已登录时）
+              if (token) {
+                try {
+                  const userVotesResponse = await fetch('/api/vote/user/count', {
                     headers: {
                       'Authorization': \`Bearer \${token}\`
                     }
                   });
                   
-                  if (statsResponse.ok) {
-                    const stats = await statsResponse.json();
-                    if (stats.success) {
-                      return {
-                        ...work,
-                        voteCount: stats.data.voteCount || 0,
-                        hasVoted: stats.data.hasVoted || false,
-                        isOwner: work.userId === currentUser?.userid
-                      };
+                  if (userVotesResponse.ok) {
+                    const userVotesData = await userVotesResponse.json();
+                    if (userVotesData.success) {
+                      userVoteCount = userVotesData.data.count || 0;
                     }
                   }
-                  
-                  return {
-                    ...work,
-                    voteCount: 0,
-                    hasVoted: false,
-                    isOwner: work.userId === currentUser?.userid
-                  };
-                })
-              );
-
-              // 获取用户已投票数量
-              const userVotesResponse = await fetch('/api/vote/user/count', {
-                headers: {
-                  'Authorization': \`Bearer \${token}\`
+                } catch (error) {
+                  console.error('获取用户投票数失败:', error);
                 }
-              });
-              
-              if (userVotesResponse.ok) {
-                const userVotesData = await userVotesResponse.json();
-                if (userVotesData.success) {
-                  userVoteCount = userVotesData.data.count || 0;
-                }
+              } else {
+                userVoteCount = 0;
               }
 
               displayWorks(worksWithVotes);
@@ -1349,8 +1452,10 @@ export async function handleHomeRoute(
 
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        alert('请先登录');
-        checkAuth();
+        // 未登录，提示用户登录，但不自动跳转
+        if (confirm('请先登录才能投票，是否前往登录页面？')) {
+          window.location.href = '/login';
+        }
         return;
       }
 
@@ -1456,12 +1561,9 @@ export async function handleHomeRoute(
       }
     });
 
-    // 退出登录
+    // 退出登录（保留在首页）
     async function logout() {
       const token = localStorage.getItem('auth_token');
-      
-      // 清除本地状态
-      clearUserState();
       
       // 如果有 token，调用后端 API 清除 session
       if (token) {
@@ -1474,12 +1576,27 @@ export async function handleHomeRoute(
           });
         } catch (error) {
           console.error('Logout error:', error);
-          // 即使 API 失败，也继续跳转
+          // 即使 API 失败，也继续清除本地状态
         }
       }
       
-      // 直接跳转到登录页面
-      window.location.href = '/login';
+      // 清除本地状态
+      clearUserState();
+      
+      // 更新 UI：显示登录按钮，隐藏用户菜单
+      document.getElementById('authBtn').style.display = 'inline-flex';
+      document.getElementById('userMenu').style.display = 'none';
+      document.getElementById('sideAuthBtn').style.display = 'inline-flex';
+      document.getElementById('sideUserMenu').style.display = 'none';
+      document.getElementById('adminLink').style.display = 'none';
+      document.getElementById('sideAdminLink').style.display = 'none';
+      
+      // 清除用户信息
+      currentUser = null;
+      userVoteCount = 0;
+      
+      // 重新加载作品列表（以未登录状态）
+      loadWorks();
     }
 
     // 清除用户状态

@@ -15,6 +15,7 @@ export async function handleUploadPage(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>上传作品 - 2026年会作品投票</title>
+  <link rel="icon" type="image/png" href="https://cn.official.d5render.com/wp-content/uploads/d5-logo-100.png">
   <style>
     * {
       margin: 0;
@@ -528,7 +529,7 @@ export async function handleUploadPage(
     async function checkAuth() {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        window.location.href = '/auth/dingtalk';
+        window.location.href = '/login';
         return null;
       }
 
@@ -547,11 +548,11 @@ export async function handleUploadPage(
         }
         
         localStorage.removeItem('auth_token');
-        window.location.href = '/auth/dingtalk';
+        window.location.href = '/login';
         return null;
       } catch (error) {
         console.error('认证检查失败:', error);
-        window.location.href = '/auth/dingtalk';
+        window.location.href = '/login';
         return null;
       }
     }
@@ -611,7 +612,7 @@ export async function handleUploadPage(
 
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        window.location.href = '/auth/dingtalk';
+        window.location.href = '/login';
         return;
       }
 

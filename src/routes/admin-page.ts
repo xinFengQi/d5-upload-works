@@ -39,6 +39,7 @@ function getLoginPageHTML(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>管理员登录 - D5 Works</title>
+  <link rel="icon" type="image/png" href="https://cn.official.d5render.com/wp-content/uploads/d5-logo-100.png">
   <style>
     * {
       margin: 0;
@@ -270,6 +271,7 @@ function getAdminPageHTML(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>作品管理 - D5 Works</title>
+  <link rel="icon" type="image/png" href="https://cn.official.d5render.com/wp-content/uploads/d5-logo-100.png">
   <style>
     * {
       margin: 0;
@@ -1365,7 +1367,21 @@ function getAdminPageHTML(): string {
           // 加载作品列表
           loadWorks();
         } else {
-          showAdminError(data.error?.message || '密码错误，请重试');
+          // 显示详细的错误信息（包含调试信息）
+          let errorMessage = data.error?.message || '密码错误，请重试';
+          if (data.error?.details?.debug) {
+            const debug = data.error.details.debug;
+            errorMessage += '\\n\\n调试信息：';
+            errorMessage += '\\n环境变量已配置: ' + (debug.hasAdminPassword ? '是' : '否');
+            errorMessage += '\\n环境变量密码长度: ' + (debug.adminPasswordLength || 0);
+            errorMessage += '\\n输入密码长度: ' + (debug.inputPasswordLength || 0);
+            if (!debug.hasAdminPassword) {
+              errorMessage += '\\n\\n⚠️ 环境变量 ADMIN_PASSWORD 未配置！';
+              errorMessage += '\\n请在 Cloudflare Dashboard 中配置，或使用命令：';
+              errorMessage += '\\nnpx wrangler secret put ADMIN_PASSWORD';
+            }
+          }
+          showAdminError(errorMessage);
           loginBtn.disabled = false;
           loginBtn.textContent = '登录';
         }
@@ -1441,17 +1457,21 @@ function getAdminPageHTML(): string {
       }
     }
 
-    // 页面加载时检查身份
+    // 页面加载时检查身份（优化：先检查 token 是否存在，避免不必要的请求）
     window.addEventListener('load', async () => {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        // 没有token，显示登录表单
+        // 没有token，直接显示登录表单，不发送请求
         document.getElementById('loginOverlay').style.display = 'flex';
         document.getElementById('adminContent').style.display = 'none';
         return;
       }
       
-      // 验证token
+      // 有 token，验证是否是管理员
+      // 先隐藏登录表单，避免闪烁
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      
       try {
         const response = await fetch('/auth/me', {
           headers: {
@@ -1462,7 +1482,7 @@ function getAdminPageHTML(): string {
         const data = await response.json();
         
         if (data.success && data.data.role === 'admin') {
-          // 是管理员，显示管理界面
+          // 是管理员，保持显示管理界面
           document.getElementById('loginOverlay').style.display = 'none';
           document.getElementById('adminContent').style.display = 'block';
           // 加载作品列表

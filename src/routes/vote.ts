@@ -17,22 +17,22 @@ export async function handleVoteRoutes(
   const path = url.pathname;
   const method = request.method;
 
-  // 获取认证 token
+  // 获取认证 token（可选，某些接口不需要认证）
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401);
-  }
-  const token = authHeader.substring(7);
-
-  // 验证 token 并获取用户信息
+  let token: string | null = null;
+  let userId: string | null = null;
+  let session: any = null;
   const kvService = new KVService(env.MY_KV);
-  const session = await kvService.get<any>(`session:${token}`);
-  if (!session || session.expiresAt < Date.now()) {
-    return createErrorResponse('Token expired', 'TOKEN_EXPIRED', 401);
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+    session = await kvService.get<any>(`session:${token}`);
+    if (session && session.expiresAt >= Date.now()) {
+      userId = session.userId;
+    }
   }
-  const userId = session.userId;
 
-  // 投票
+  // 投票（需要认证）
   if (path === '/api/vote' && method === 'POST') {
     try {
       const body: VoteRequest = await request.json();
@@ -88,8 +88,12 @@ export async function handleVoteRoutes(
     }
   }
 
-  // 取消投票
+  // 取消投票（需要认证）
   if (path === '/api/vote' && method === 'DELETE') {
+    if (!userId) {
+      return createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401);
+    }
+    
     try {
       const workId = url.searchParams.get('workId');
       if (!workId) {
@@ -114,8 +118,12 @@ export async function handleVoteRoutes(
     }
   }
 
-  // 获取用户投票数量
+  // 获取用户投票数量（需要认证）
   if (path === '/api/vote/user/count' && method === 'GET') {
+    if (!userId) {
+      return createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401);
+    }
+    
     try {
       const userVotes = await kvService.list(`vote:user:${userId}:`);
       return createSuccessResponse({
@@ -127,7 +135,7 @@ export async function handleVoteRoutes(
     }
   }
 
-  // 获取投票统计
+  // 获取投票统计（允许未登录用户获取投票数）
   if (path === '/api/vote/stats' && method === 'GET') {
     try {
       const workId = url.searchParams.get('workId');
@@ -135,23 +143,36 @@ export async function handleVoteRoutes(
         return createErrorResponse('workId is required', 'INVALID_REQUEST', 400);
       }
 
-      // 使用 Durable Objects 获取投票数和投票状态
+      // 使用 Durable Objects 获取投票数
       const voteCounterService = new VoteCounterService(env);
       
       try {
         const voteCount = await voteCounterService.getCount(workId);
-        const hasVotedResult = await voteCounterService.hasVoted(workId, userId);
+        
+        // 如果已登录，获取投票状态
+        let hasVoted = false;
+        if (userId) {
+          try {
+            const hasVotedResult = await voteCounterService.hasVoted(workId, userId);
+            hasVoted = hasVotedResult.hasVoted;
+          } catch (error) {
+            // 如果获取投票状态失败，不影响返回投票数
+            console.error(`Get hasVoted error for work ${workId}:`, error);
+          }
+        }
 
         return createSuccessResponse({
           workId,
-          count: voteCount, // 使用 count 而不是 voteCount，与管理页面期望的字段名一致
-          hasVoted: hasVotedResult.hasVoted,
+          voteCount: voteCount, // 统一使用 voteCount
+          count: voteCount, // 兼容管理页面
+          hasVoted: hasVoted,
         });
       } catch (doError: any) {
         console.error(`Durable Objects error for work ${workId}:`, doError);
         // 如果 Durable Objects 调用失败，返回 0
         return createSuccessResponse({
           workId,
+          voteCount: 0,
           count: 0,
           hasVoted: false,
         });
@@ -166,8 +187,12 @@ export async function handleVoteRoutes(
     }
   }
 
-  // 获取作品的投票用户列表（仅管理员）
+  // 获取作品的投票用户列表（仅管理员，需要认证）
   if (path === '/api/vote/users' && method === 'GET') {
+    if (!userId || !session) {
+      return createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401);
+    }
+    
     try {
       // 验证是否为管理员
       if (session.userInfo?.role !== 'admin') {
