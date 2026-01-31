@@ -17,6 +17,7 @@ export function validateEnv(env: Env): { valid: boolean; missing: string[] } {
     'DINGTALK_APP_SECRET',
     'DINGTALK_REDIRECT_URI',
     'SESSION_SECRET',
+    'ADMIN_PASSWORD',
   ];
 
   const missing: string[] = [];

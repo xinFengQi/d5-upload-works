@@ -153,6 +153,7 @@ npx wrangler secret put DINGTALK_APP_KEY
 npx wrangler secret put DINGTALK_APP_SECRET
 npx wrangler secret put DINGTALK_REDIRECT_URI
 npx wrangler secret put SESSION_SECRET
+npx wrangler secret put ADMIN_PASSWORD
 ```
 
 4. 部署：
@@ -184,6 +185,7 @@ npm run deploy
 | 变量名 | 说明 | 生成方式 |
 |--------|------|----------|
 | `SESSION_SECRET` | 会话加密密钥 | 使用随机字符串生成器生成，建议 32 位以上 |
+| `ADMIN_PASSWORD` | 管理员登录密码 | 用于管理员页面登录，建议使用强密码 |
 
 ## API 接口
 

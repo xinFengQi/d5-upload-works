@@ -180,6 +180,18 @@ export async function handleAuthRoutes(
         return createErrorResponse('Missing password', 'INVALID_REQUEST', 400);
       }
 
+      // 调试日志：检查环境变量（不输出实际密码）
+      const hasAdminPassword = !!env.ADMIN_PASSWORD;
+      const adminPasswordLength = env.ADMIN_PASSWORD ? env.ADMIN_PASSWORD.length : 0;
+      const inputPasswordLength = body.password ? body.password.length : 0;
+      
+      console.log('Admin login attempt:', {
+        hasAdminPassword,
+        adminPasswordLength,
+        inputPasswordLength,
+        passwordsMatch: body.password === env.ADMIN_PASSWORD,
+      });
+
       // 验证管理员密码
       if (body.password !== env.ADMIN_PASSWORD) {
         return createErrorResponse('Invalid password', 'INVALID_PASSWORD', 401);

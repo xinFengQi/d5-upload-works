@@ -30,6 +30,7 @@ new_sqlite_classes = ["VoteCounter"]
 # npx wrangler secret put DINGTALK_APP_SECRET
 # npx wrangler secret put DINGTALK_REDIRECT_URI
 # npx wrangler secret put SESSION_SECRET
+# npx wrangler secret put ADMIN_PASSWORD
 
 # 路由配置（可选）
 # routes = [
