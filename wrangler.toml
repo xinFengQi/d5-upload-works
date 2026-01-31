@@ -32,7 +32,8 @@ new_sqlite_classes = ["VoteCounter"]
 # npx wrangler secret put SESSION_SECRET
 # npx wrangler secret put ADMIN_PASSWORD
 
-# 路由配置（可选）
+# 路由配置（自定义域名）
+# 如果需要保留远程的自定义域名，取消下面的注释
 # routes = [
-#   { pattern = "your-domain.com/*", zone_name = "your-domain.com" }
+#   { pattern = "227811.de5.net/*", zone_name = "227811.de5.net", custom_domain = true }
 # ]
