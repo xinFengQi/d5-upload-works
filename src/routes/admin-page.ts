@@ -418,6 +418,109 @@ function getAdminPageHTML(): string {
       background-clip: text;
     }
 
+    .config-card {
+      background: var(--bg-secondary);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-color);
+    }
+
+    .config-header-inline {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .config-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      white-space: nowrap;
+    }
+
+    .config-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .config-content {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .config-form-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .config-label {
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 0.9375rem;
+      white-space: nowrap;
+    }
+
+    .config-select {
+      min-width: 180px;
+      padding: 0.75rem 1rem;
+      border: 2px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.9375rem;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .config-select:hover {
+      border-color: var(--primary-color);
+    }
+
+    .config-select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .config-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .config-link {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .link-icon {
+      font-size: 0.875rem;
+    }
+
+    .config-message {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      text-align: center;
+      font-size: 0.875rem;
+      display: none;
+    }
+
     .works-table-container {
       background: var(--bg-secondary);
       border-radius: 1rem;
@@ -813,6 +916,34 @@ function getAdminPageHTML(): string {
         <div class="stat-label">参与用户</div>
         <div class="stat-value" id="totalUsers">-</div>
       </div>
+    </div>
+
+    <!-- 大屏配置卡片 -->
+    <div class="config-card">
+      <div class="config-content">
+        <div class="config-header-inline">
+          <h2 class="config-title">大屏播放配置</h2>
+          <p class="config-subtitle">配置多屏播放的分屏模式</p>
+        </div>
+        <div class="config-form-group">
+          <label class="config-label">分屏模式</label>
+          <select id="gridLayoutSelect" class="config-select">
+            <option value="2x2">2x2 (4屏)</option>
+            <option value="2x3">2x3 (6屏)</option>
+            <option value="3x2">3x2 (6屏)</option>
+            <option value="3x3">3x3 (9屏)</option>
+            <option value="4x4">4x4 (16屏)</option>
+          </select>
+        </div>
+        <div class="config-actions">
+          <button class="btn" onclick="saveScreenConfig()">保存配置</button>
+          <a href="/multi-screen" target="_blank" class="btn btn-outline config-link">
+            <span>打开多屏播放</span>
+            <span class="link-icon">↗</span>
+          </a>
+        </div>
+      </div>
+      <div id="configMessage" class="config-message"></div>
     </div>
 
     <div class="works-table-container">
@@ -1247,6 +1378,70 @@ function getAdminPageHTML(): string {
       }
     }
 
+    // 加载屏幕配置
+    async function loadScreenConfig() {
+      try {
+        const response = await fetch('/api/screen-config');
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          const select = document.getElementById('gridLayoutSelect');
+          if (select) {
+            select.value = data.data.gridLayout || '2x2';
+          }
+        }
+      } catch (error) {
+        console.error('Load screen config error:', error);
+      }
+    }
+
+    // 保存屏幕配置
+    async function saveScreenConfig() {
+      try {
+        const token = getAuthToken();
+        if (!token) {
+          showToast('未登录，请重新登录', 'error');
+          window.location.reload();
+          return;
+        }
+
+        const select = document.getElementById('gridLayoutSelect');
+        const gridLayout = select.value;
+
+        const response = await fetch('/api/screen-config', {
+          method: 'POST',
+          headers: {
+            'Authorization': \`Bearer \${token}\`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ gridLayout }),
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          showToast('配置保存成功', 'success');
+          const messageEl = document.getElementById('configMessage');
+          if (messageEl) {
+            messageEl.textContent = '✓ 配置已保存';
+            messageEl.className = 'config-message';
+            messageEl.style.display = 'block';
+            messageEl.style.background = '#d1fae5';
+            messageEl.style.color = '#065f46';
+            messageEl.style.border = '1px solid #6ee7b7';
+            setTimeout(() => {
+              messageEl.style.display = 'none';
+            }, 3000);
+          }
+        } else {
+          showToast(data.error?.message || '保存失败', 'error');
+        }
+      } catch (error) {
+        console.error('Save screen config error:', error);
+        showToast('保存失败，请重试', 'error');
+      }
+    }
+
     // 页面加载时检查身份
     window.addEventListener('load', async () => {
       const token = localStorage.getItem('auth_token');
@@ -1273,6 +1468,8 @@ function getAdminPageHTML(): string {
           document.getElementById('adminContent').style.display = 'block';
           // 加载作品列表
           loadWorks();
+          // 加载屏幕配置
+          loadScreenConfig();
         } else {
           // 不是管理员，显示登录表单
           document.getElementById('loginOverlay').style.display = 'flex';

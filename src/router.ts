@@ -13,6 +13,8 @@ import { handleScreenPage } from './routes/screen-page';
 import { handleVoteResultPage } from './routes/vote-result-page';
 import { handleLoginPage } from './routes/login-page';
 import { handleAdminPage } from './routes/admin-page';
+import { handleScreenConfigRoutes } from './routes/screen-config';
+import { handleMultiScreenPage } from './routes/multi-screen-page';
 import { createErrorResponse } from './utils/response';
 
 export async function handleRequest(
@@ -56,6 +58,11 @@ export async function handleRequest(
     return handleVoteRoutes(request, env, ctx);
   }
 
+  // 大屏配置路由
+  if (path.startsWith('/api/screen-config')) {
+    return handleScreenConfigRoutes(request, env, ctx);
+  }
+
   // 上传页面
   if (path === '/upload' && method === 'GET') {
     return handleUploadPage(request, env, ctx);
@@ -64,6 +71,11 @@ export async function handleRequest(
   // 大屏展示页面（走马灯轮播）
   if (path === '/screen' && method === 'GET') {
     return handleScreenPage(request, env, ctx);
+  }
+
+  // 多屏播放页面
+  if (path === '/multi-screen' && method === 'GET') {
+    return handleMultiScreenPage(request, env, ctx);
   }
 
   // 投票结果页面

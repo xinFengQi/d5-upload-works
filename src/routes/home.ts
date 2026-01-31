@@ -942,6 +942,7 @@ export async function handleHomeRoute(
         <a href="/upload" class="btn btn-primary">上传作品</a>
         <a href="/vote-result" class="btn btn-outline">投票结果</a>
         <a href="/screen" class="btn btn-outline">大屏展示</a>
+        <a href="/multi-screen" class="btn btn-outline">多屏播放</a>
         <a href="/admin" class="btn btn-outline" id="adminLink" style="display: none;">管理</a>
       </div>
     </div>

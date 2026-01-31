@@ -420,8 +420,23 @@ export async function handleScreenPage(
         video.currentTime = 0;
         // 确保视频结束事件已绑定
         video.removeEventListener('ended', handleVideoEnd);
-        video.addEventListener('ended', () => handleVideoEnd(currentIndex));
-        video.play().catch(e => console.error('播放失败:', e));
+        // 绑定结束事件，确保循环播放
+        const handleEnd = () => {
+          // 确保是当前视频才切换
+          if (currentIndex === parseInt(currentSlide.dataset.index || '0')) {
+            handleVideoEnd(currentIndex);
+          }
+        };
+        video.addEventListener('ended', handleEnd);
+        video.play().catch(e => {
+          console.error('播放失败:', e);
+          // 播放失败时，延迟后尝试播放下一个
+          setTimeout(() => {
+            if (works.length > 0) {
+              nextSlide();
+            }
+          }, 1000);
+        });
       }
 
       // 暂停其他视频
@@ -451,11 +466,18 @@ export async function handleScreenPage(
     function handleVideoEnd(videoIndex) {
       // 只有当前播放的视频结束时才切换
       if (videoIndex === currentIndex) {
-        nextSlide();
+        // 确保有作品可以播放
+        if (works.length > 0) {
+          nextSlide();
+        }
       }
     }
 
     function nextSlide() {
+      // 确保有作品可以播放
+      if (works.length === 0) return;
+      
+      // 循环播放：到达最后一个后回到第一个
       const nextIndex = (currentIndex + 1) % works.length;
       showSlide(nextIndex);
     }
