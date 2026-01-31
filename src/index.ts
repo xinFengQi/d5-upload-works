@@ -6,6 +6,9 @@
 import { handleRequest } from './router';
 import { VoteCounter } from './durable-objects/vote-counter';
 
+// 导出 Durable Objects（必须在 default export 之前）
+export { VoteCounter };
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
@@ -28,6 +31,3 @@ export default {
     }
   },
 };
-
-// 导出 Durable Objects
-export { VoteCounter };

@@ -12,12 +12,13 @@ preview_id = "1c75ff4ae0e24433a9b0913041feae0f"
 [[durable_objects.bindings]]
 name = "VOTE_COUNTER"
 class_name = "VoteCounter"
-script_name = "d5-upload-works"
+# script_name 可以省略，默认使用当前脚本名称
 
-# Durable Objects 迁移配置（首次部署不需要，后续迁移时需要）
-# [[migrations]]
-# tag = "v1"
-# new_classes = ["VoteCounter"]
+# Durable Objects 迁移配置
+# 首次部署时需要启用此配置来创建 Durable Objects 类
+[[migrations]]
+tag = "v1"
+new_classes = ["VoteCounter"]
 
 # 环境变量（开发环境使用 .dev.vars，生产环境使用 wrangler secret）
 # 生产环境配置密钥：
