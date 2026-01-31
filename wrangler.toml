@@ -15,10 +15,10 @@ class_name = "VoteCounter"
 # script_name 可以省略，默认使用当前脚本名称
 
 # Durable Objects 迁移配置
-# 首次部署时需要启用此配置来创建 Durable Objects 类
+# 免费计划需要使用 new_sqlite_classes 而不是 new_classes
 [[migrations]]
 tag = "v1"
-new_classes = ["VoteCounter"]
+new_sqlite_classes = ["VoteCounter"]
 
 # 环境变量（开发环境使用 .dev.vars，生产环境使用 wrangler secret）
 # 生产环境配置密钥：
