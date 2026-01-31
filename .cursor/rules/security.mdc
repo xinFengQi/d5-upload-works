@@ -1,0 +1,47 @@
+---
+description: "安全规范：密钥管理、API 安全和数据验证"
+alwaysApply: true
+---
+
+# 安全规范
+
+## 1. 密钥管理
+- **禁止**在代码中硬编码任何密钥
+- **禁止**在 Git 仓库中提交包含密钥的文件
+- 使用 Wrangler secrets 管理生产环境密钥
+- 开发环境使用 `.dev.vars` 文件（已加入 .gitignore）
+- 所有敏感信息必须通过环境变量配置
+
+## 2. API 安全
+- 所有需要认证的接口必须验证用户身份
+- 使用 HTTPS 传输（生产环境）
+- 验证文件类型和大小限制
+- 防止 CSRF 攻击
+- 验证请求来源（如需要）
+
+## 3. 数据验证
+- 所有用户输入必须验证
+- 文件上传前验证文件类型、大小
+- 使用 TypeScript 类型系统确保类型安全
+- 使用 `src/utils/validation.ts` 中的验证函数：
+  - `validateFileType(fileName: string, allowedTypes: string[])`
+  - `validateFileSize(fileSize: number, maxSize: number)`
+  - `validateStringLength(str: string, min: number, max: number)`
+  - `validateRequired(value: any)`
+
+## 4. 会话管理
+- Session token 使用随机生成
+- Token 存储在 KV 中，设置合理的过期时间
+- 验证 token 时检查过期时间
+- 退出登录时清除 session
+
+## 5. 文件上传安全
+- 验证文件类型（白名单机制）
+- 限制文件大小（如 100MB）
+- 文件名使用 UUID，防止路径遍历
+- 验证用户身份后才能上传
+
+## 6. 日志安全
+- 不在日志中输出敏感信息（密钥、密码、token 等）
+- 错误日志不暴露系统内部细节
+- 使用适当的日志级别

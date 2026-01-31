@@ -1,0 +1,36 @@
+name = "d5-upload-works"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Workers KV 命名空间绑定
+[[kv_namespaces]]
+binding = "MY_KV"
+id = "d4b3d057d14c407c881a400de15514a0"
+preview_id = "1c75ff4ae0e24433a9b0913041feae0f"
+
+# Durable Objects 绑定
+[[durable_objects.bindings]]
+name = "VOTE_COUNTER"
+class_name = "VoteCounter"
+script_name = "d5-upload-works"
+
+# Durable Objects 迁移配置（首次部署不需要，后续迁移时需要）
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["VoteCounter"]
+
+# 环境变量（开发环境使用 .dev.vars，生产环境使用 wrangler secret）
+# 生产环境配置密钥：
+# npx wrangler secret put ALIYUN_OSS_ACCESS_KEY_ID
+# npx wrangler secret put ALIYUN_OSS_ACCESS_KEY_SECRET
+# npx wrangler secret put ALIYUN_OSS_REGION
+# npx wrangler secret put ALIYUN_OSS_BUCKET
+# npx wrangler secret put DINGTALK_APP_KEY
+# npx wrangler secret put DINGTALK_APP_SECRET
+# npx wrangler secret put DINGTALK_REDIRECT_URI
+# npx wrangler secret put SESSION_SECRET
+
+# 路由配置（可选）
+# routes = [
+#   { pattern = "your-domain.com/*", zone_name = "your-domain.com" }
+# ]

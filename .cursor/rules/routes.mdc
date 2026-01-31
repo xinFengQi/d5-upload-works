@@ -1,0 +1,65 @@
+---
+description: "路由处理规范和 API 端点设计标准"
+globs:
+  - "**/routes/**/*.ts"
+  - "**/router.ts"
+---
+
+# 路由处理规范
+
+## 路由结构
+所有路由处理函数应该：
+1. 接收 `Request`, `Env`, `ExecutionContext` 参数
+2. 返回 `Promise<Response>`
+3. 使用统一的响应格式（通过 `createSuccessResponse` 和 `createErrorResponse`）
+
+## 路由处理模式
+
+```typescript
+export async function handleXxxRoutes(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method;
+
+  // 处理特定路由
+  if (path === '/api/xxx' && method === 'GET') {
+    // 实现逻辑
+  }
+
+  // 404
+  return createErrorResponse('Not Found', 'NOT_FOUND', 404);
+}
+```
+
+## 认证路由 (auth.ts)
+- `/auth/dingtalk` (GET): 重定向到钉钉登录页面
+- `/auth/callback` (GET): 处理钉钉登录回调
+- `/auth/me` (GET): 获取当前用户信息（需要认证）
+- `/auth/logout` (POST): 退出登录（需要认证）
+
+## 上传路由 (upload.ts)
+- `/api/upload` (POST): 上传文件到 OSS（需要认证）
+  - 验证用户身份
+  - 验证文件类型和大小
+  - 调用 OSS 服务上传
+  - 保存作品信息到 KV
+
+## 作品管理路由 (works.ts)
+- `/api/works` (GET): 获取作品列表（需要认证，支持分页）
+- `/api/works/:id` (GET): 获取作品详情（需要认证）
+- `/api/works/:id` (DELETE): 删除作品（需要认证，验证所有权）
+
+## 路由注册
+在 `src/router.ts` 中注册所有路由，使用路径前缀匹配：
+- `/auth/*` → `handleAuthRoutes`
+- `/api/upload` → `handleUploadRoutes`
+- `/api/works*` → `handleWorksRoutes`
+
+## 错误处理
+- 使用 `createErrorResponse` 创建错误响应
+- 记录错误日志
+- 不暴露敏感信息

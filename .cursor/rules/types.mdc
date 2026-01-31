@@ -1,0 +1,44 @@
+---
+description: "TypeScript 类型定义规范和数据结构"
+globs:
+  - "**/types/**/*.ts"
+---
+
+# 类型定义规范
+
+## 类型文件组织
+所有类型定义放在 `src/types/` 目录下：
+- `env.d.ts`: 环境变量类型（`Env` 接口）
+- `user.ts`: 用户相关类型
+- `work.ts`: 作品相关类型
+- `api.ts`: API 响应类型
+
+## 类型定义要求
+- 使用 `interface` 定义数据结构
+- 使用 `type` 定义联合类型或别名
+- 所有接口属性应该有明确的类型
+- 可选属性使用 `?` 标记
+- 添加必要的注释说明
+
+## 用户类型 (user.ts)
+- `DingTalkUser`: 钉钉用户信息
+- `UserSession`: 用户会话信息
+- `AuthToken`: 认证 token
+
+## 作品类型 (work.ts)
+- `Work`: 作品完整信息
+- `CreateWorkRequest`: 创建作品请求
+- `UpdateWorkRequest`: 更新作品请求
+
+## API 类型 (api.ts)
+- `ApiResponse<T>`: 统一 API 响应格式
+- `PaginatedResponse<T>`: 分页响应格式
+
+## 环境变量类型 (env.d.ts)
+- `Env`: 环境变量接口，包含所有必需的环境变量类型
+- 与 `wrangler.toml` 和实际环境变量保持一致
+
+## 类型使用
+- 在函数参数和返回值中使用明确的类型
+- 避免使用 `any`
+- 使用类型推断时确保类型明确

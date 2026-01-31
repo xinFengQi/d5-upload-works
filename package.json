@@ -1,0 +1,30 @@
+{
+  "name": "d5-upload-works",
+  "version": "1.0.0",
+  "description": "作品上传系统 - 基于 Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "upload",
+    "oss",
+    "dingtalk"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.61.1"
+  },
+  "dependencies": {
+    "ali-oss": "^6.20.0"
+  }
+}
