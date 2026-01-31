@@ -5,6 +5,7 @@
 import type { Env } from '../types/env';
 import { createErrorResponse, createSuccessResponse } from '../utils/response';
 import { KVService } from '../services/kv';
+import { OSSService } from '../services/oss';
 import { generateToken } from '../utils/crypto';
 import type { UserSession, DingTalkUser } from '../types/user';
 import type { Work } from '../types/work';
@@ -34,20 +35,6 @@ async function verifyUser(request: Request, kvService: KVService): Promise<DingT
   return session.userInfo;
 }
 
-/**
- * 生成模拟的文件 URL（开发环境使用）
- */
-function generateMockFileUrl(fileName: string, fileType: string): string {
-  // 生成一个模拟的文件 URL
-  // 在实际环境中，这应该是 OSS 的 URL
-  const timestamp = Date.now();
-  const fileId = generateToken().substring(0, 16);
-  const extension = fileName.split('.').pop() || 'mp4';
-  
-  // 使用一个公开的视频 URL 作为示例，或者返回一个占位符 URL
-  // 这里返回一个可以用于测试的 URL
-  return `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
-}
 
 export async function handleUploadRoutes(
   request: Request,
@@ -59,6 +46,17 @@ export async function handleUploadRoutes(
   const method = request.method;
 
   const kvService = new KVService(env.MY_KV);
+  
+  // 调试日志：检查环境变量
+  console.log('Upload route - Environment variables check:', {
+    hasAccessKeyId: !!env.ALIYUN_OSS_ACCESS_KEY_ID,
+    hasAccessKeySecret: !!env.ALIYUN_OSS_ACCESS_KEY_SECRET,
+    region: env.ALIYUN_OSS_REGION,
+    bucket: env.ALIYUN_OSS_BUCKET,
+    accessKeyIdPrefix: env.ALIYUN_OSS_ACCESS_KEY_ID ? env.ALIYUN_OSS_ACCESS_KEY_ID.substring(0, 8) + '...' : 'missing',
+  });
+  
+  const ossService = new OSSService(env);
 
   // 上传文件
   if (path === '/api/upload' && method === 'POST') {
@@ -71,7 +69,7 @@ export async function handleUploadRoutes(
 
       // 2. 解析 FormData
       const formData = await request.formData();
-      const file = formData.get('file') as File;
+      const file = formData.get('file') as unknown as File;
       const title = formData.get('title') as string;
 
       if (!file) {
@@ -113,12 +111,91 @@ export async function handleUploadRoutes(
         }
       }
 
-      // 6. 生成模拟的文件 URL（开发环境）
-      // 在实际环境中，这里应该调用 OSS 服务上传文件
-      const fileUrl = generateMockFileUrl(file.name, file.type);
-
-      // 7. 创建作品信息
+      // 6. 生成文件在 OSS 中的路径
+      // 格式：works/{userId}/{workId}/{filename}
       const workId = `work_${Date.now()}_${generateToken().substring(0, 8)}`;
+      const fileExtension = file.name.split('.').pop() || 'mp4';
+      const ossKey = `works/${userInfo.userid}/${workId}.${fileExtension}`;
+
+      // 7. 上传文件到 OSS
+      let fileUrl: string;
+      try {
+        fileUrl = await ossService.uploadFile(file, ossKey);
+      } catch (ossError: any) {
+        console.error('OSS upload error:', ossError);
+        
+        // 构建错误响应，包含调试信息
+        const errorMessage = ossError.message || '未知错误';
+        
+        // 如果错误包含调试信息，使用它；否则从环境变量中获取配置信息
+        let errorDetails = ossError.debugInfo;
+        if (!errorDetails) {
+          // 从环境变量中获取实际配置值
+          errorDetails = {
+            originalError: ossError.message || String(ossError),
+            bucket: env.ALIYUN_OSS_BUCKET || '未配置',
+            region: env.ALIYUN_OSS_REGION || '未配置',
+            endpoint: env.ALIYUN_OSS_BUCKET && env.ALIYUN_OSS_REGION 
+              ? `${env.ALIYUN_OSS_BUCKET}.${env.ALIYUN_OSS_REGION}.aliyuncs.com`
+              : '未配置',
+            hasAccessKey: !!env.ALIYUN_OSS_ACCESS_KEY_ID,
+            hasSecret: !!env.ALIYUN_OSS_ACCESS_KEY_SECRET,
+            accessKeyIdPrefix: env.ALIYUN_OSS_ACCESS_KEY_ID 
+              ? env.ALIYUN_OSS_ACCESS_KEY_ID.substring(0, 8) + '...' 
+              : 'missing',
+          };
+        }
+        
+        // 构建错误响应
+        // 注意：在生产环境中，应该只返回必要的错误信息，不包含详细的调试信息
+        // 详细的调试信息只在开发环境或通过管理员接口返回
+        const isDevelopment = env.ALIYUN_OSS_BUCKET === 'your_bucket_name' || 
+                              !env.ALIYUN_OSS_BUCKET || 
+                              env.ALIYUN_OSS_BUCKET.includes('your_');
+        
+        return createErrorResponse(
+          errorMessage,
+          'OSS_UPLOAD_ERROR',
+          500,
+          {
+            // 只在开发环境返回详细调试信息
+            ...(isDevelopment ? {
+              debugInfo: errorDetails,
+              debug: {
+                status: errorDetails.status,
+                statusText: errorDetails.statusText,
+                error: errorDetails.error,
+                url: errorDetails.url,
+                resource: errorDetails.resource,
+                bucket: errorDetails.bucket || env.ALIYUN_OSS_BUCKET || '未配置',
+                region: errorDetails.region || env.ALIYUN_OSS_REGION || '未配置',
+                endpoint: errorDetails.endpoint || (env.ALIYUN_OSS_BUCKET && env.ALIYUN_OSS_REGION 
+                  ? `${env.ALIYUN_OSS_BUCKET}.${env.ALIYUN_OSS_REGION}.aliyuncs.com`
+                  : '未配置'),
+                contentType: errorDetails.contentType,
+                fileSize: errorDetails.fileSize,
+                fileName: errorDetails.fileName,
+                hasAccessKey: errorDetails.hasAccessKey !== undefined 
+                  ? errorDetails.hasAccessKey 
+                  : !!env.ALIYUN_OSS_ACCESS_KEY_ID,
+                hasSecret: errorDetails.hasSecret !== undefined 
+                  ? errorDetails.hasSecret 
+                  : !!env.ALIYUN_OSS_ACCESS_KEY_SECRET,
+                accessKeyIdPrefix: errorDetails.accessKeyIdPrefix || (env.ALIYUN_OSS_ACCESS_KEY_ID 
+                  ? env.ALIYUN_OSS_ACCESS_KEY_ID.substring(0, 8) + '...' 
+                  : 'missing'),
+                envBucket: env.ALIYUN_OSS_BUCKET || '未从环境变量读取',
+                envRegion: env.ALIYUN_OSS_REGION || '未从环境变量读取',
+              }
+            } : {
+              // 生产环境只返回基本错误信息
+              message: '文件上传失败，请稍后重试或联系管理员',
+            })
+          }
+        );
+      }
+
+      // 9. 创建作品信息
       const now = Date.now();
 
       const work: Work = {
@@ -126,7 +203,7 @@ export async function handleUploadRoutes(
         userId: userInfo.userid,
         title: trimmedTitle,
         fileUrl,
-        fileName: file.name,
+        fileName: ossKey, // 存储 OSS key，用于后续删除
         fileSize: file.size,
         fileType: file.type,
         createdAt: now,
@@ -134,16 +211,16 @@ export async function handleUploadRoutes(
         creatorName: userInfo.name,
       };
 
-      // 8. 保存作品到 KV
+      // 10. 保存作品到 KV
       await kvService.set(`work:${workId}`, work);
 
-      // 9. 保存用户作品索引（用于快速查询用户的作品列表）
+      // 11. 保存用户作品索引（用于快速查询用户的作品列表）
       const userWorksKey = `user_works:${userInfo.userid}`;
       const userWorks = await kvService.get<string[]>(userWorksKey) || [];
       userWorks.push(workId);
       await kvService.set(userWorksKey, userWorks);
 
-      // 10. 保存所有作品索引（用于查询所有作品）
+      // 12. 保存所有作品索引（用于查询所有作品）
       const allWorksKey = 'all_works';
       const allWorks = await kvService.get<string[]>(allWorksKey) || [];
       allWorks.push(workId);

@@ -15,7 +15,7 @@ export async function handleHomeRoute(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2026年会视频投票 - D5 Works</title>
+  <title>2026年会作品投票 - D5 Works</title>
   <style>
     * {
       margin: 0;
@@ -110,12 +110,14 @@ export async function handleHomeRoute(
         padding: 0.75rem 1rem;
       }
       .nav-container {
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        flex-wrap: nowrap;
+        gap: 1rem;
       }
       .nav-actions {
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        display: none;
+      }
+      .menu-toggle {
+        display: block;
       }
     }
 
@@ -149,6 +151,133 @@ export async function handleHomeRoute(
       display: flex;
       gap: 1rem;
       align-items: center;
+    }
+
+    /* 菜单按钮（小屏幕显示） */
+    .menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      font-size: 1.5rem;
+      color: var(--text-primary);
+      transition: transform 0.3s ease;
+    }
+
+    .menu-toggle:hover {
+      transform: scale(1.1);
+    }
+
+    .menu-toggle.active {
+      transform: rotate(90deg);
+    }
+
+    /* 侧边菜单遮罩 */
+    .menu-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1999;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .menu-overlay.active {
+      display: block;
+      opacity: 1;
+    }
+
+    /* 侧边菜单 */
+    .side-menu {
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: 280px;
+      max-width: 85vw;
+      height: 100vh;
+      background: var(--bg-primary);
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+      z-index: 2000;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+
+    .side-menu.active {
+      right: 0;
+    }
+
+    .side-menu-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .side-menu-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .side-menu-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0.25rem;
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.25rem;
+      transition: all 0.2s ease;
+    }
+
+    .side-menu-close:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .side-menu-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .side-menu-actions .btn {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .side-menu-actions .user-menu {
+      width: 100%;
+    }
+
+    .side-menu-actions .user-menu button {
+      width: 100%;
+    }
+
+    .side-menu-actions .user-dropdown {
+      position: static;
+      width: 100%;
+      box-shadow: none;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      margin-top: 0.5rem;
     }
 
     .btn {
@@ -945,13 +1074,39 @@ export async function handleHomeRoute(
         <a href="/multi-screen" class="btn btn-outline">多屏播放</a>
         <a href="/admin" class="btn btn-outline" id="adminLink" style="display: none;">管理</a>
       </div>
+      <button class="menu-toggle" id="menuToggle" onclick="toggleSideMenu()" aria-label="打开菜单">☰</button>
     </div>
   </nav>
+
+  <!-- 侧边菜单遮罩 -->
+  <div class="menu-overlay" id="menuOverlay" onclick="closeSideMenu()"></div>
+
+  <!-- 侧边菜单 -->
+  <div class="side-menu" id="sideMenu">
+    <div class="side-menu-header">
+      <h2 class="side-menu-title">菜单</h2>
+      <button class="side-menu-close" onclick="closeSideMenu()" aria-label="关闭菜单">×</button>
+    </div>
+    <div class="side-menu-actions">
+      <div class="user-menu" id="sideUserMenu" style="display: none;">
+        <button class="btn btn-outline" id="sideUserNameBtn" onclick="toggleSideUserMenu()"></button>
+        <div class="user-dropdown" id="sideUserDropdown" style="display: none;">
+          <button class="dropdown-item" onclick="logout()">退出登录</button>
+        </div>
+      </div>
+      <button class="btn btn-outline" id="sideAuthBtn" onclick="checkAuth(); closeSideMenu();">登录</button>
+      <a href="/upload" class="btn btn-primary" onclick="closeSideMenu()">上传作品</a>
+      <a href="/vote-result" class="btn btn-outline" onclick="closeSideMenu()">投票结果</a>
+      <a href="/screen" class="btn btn-outline" onclick="closeSideMenu()">大屏展示</a>
+      <a href="/multi-screen" class="btn btn-outline" onclick="closeSideMenu()">多屏播放</a>
+      <a href="/admin" class="btn btn-outline" id="sideAdminLink" style="display: none;" onclick="closeSideMenu()">管理</a>
+    </div>
+  </div>
 
   <!-- 主要内容 -->
   <div class="main-content">
     <div class="page-header">
-      <h1 class="page-title">2026年会视频投票</h1>
+      <h1 class="page-title">2026年会作品投票</h1>
       <p class="page-subtitle">释放你的想象力，分享你的创作</p>
       <p class="page-tagline">进入心流之境，体验创作自由</p>
     </div>
@@ -1015,11 +1170,20 @@ export async function handleHomeRoute(
             document.getElementById('userMenu').style.display = 'block';
             document.getElementById('userNameBtn').textContent = currentUser.name || '已登录';
             
+            // 同步侧边菜单
+            document.getElementById('sideAuthBtn').style.display = 'none';
+            document.getElementById('sideUserMenu').style.display = 'block';
+            document.getElementById('sideUserNameBtn').textContent = currentUser.name || '已登录';
+            
             // 如果是管理员，显示管理入口
             if (currentUser.role === 'admin') {
               const adminLink = document.getElementById('adminLink');
               if (adminLink) {
                 adminLink.style.display = 'inline-flex';
+              }
+              const sideAdminLink = document.getElementById('sideAdminLink');
+              if (sideAdminLink) {
+                sideAdminLink.style.display = 'inline-flex';
               }
             }
             
@@ -1244,12 +1408,51 @@ export async function handleHomeRoute(
       dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
     }
 
+    function toggleSideUserMenu() {
+      const dropdown = document.getElementById('sideUserDropdown');
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // 打开侧边菜单
+    function toggleSideMenu() {
+      const sideMenu = document.getElementById('sideMenu');
+      const menuOverlay = document.getElementById('menuOverlay');
+      const menuToggle = document.getElementById('menuToggle');
+      
+      if (sideMenu.classList.contains('active')) {
+        closeSideMenu();
+      } else {
+        sideMenu.classList.add('active');
+        menuOverlay.classList.add('active');
+        menuToggle.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    // 关闭侧边菜单
+    function closeSideMenu() {
+      const sideMenu = document.getElementById('sideMenu');
+      const menuOverlay = document.getElementById('menuOverlay');
+      const menuToggle = document.getElementById('menuToggle');
+      
+      sideMenu.classList.remove('active');
+      menuOverlay.classList.remove('active');
+      menuToggle.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
     // 点击外部关闭菜单
     document.addEventListener('click', function(event) {
       const userMenu = document.getElementById('userMenu');
       const dropdown = document.getElementById('userDropdown');
       if (userMenu && dropdown && !userMenu.contains(event.target)) {
         dropdown.style.display = 'none';
+      }
+      
+      const sideUserMenu = document.getElementById('sideUserMenu');
+      const sideDropdown = document.getElementById('sideUserDropdown');
+      if (sideUserMenu && sideDropdown && !sideUserMenu.contains(event.target)) {
+        sideDropdown.style.display = 'none';
       }
     });
 
@@ -1288,11 +1491,17 @@ export async function handleHomeRoute(
       document.getElementById('userMenu').style.display = 'none';
       document.getElementById('authBtn').style.display = 'block';
       document.getElementById('authBtn').textContent = '登录';
+      // 同步侧边菜单
+      document.getElementById('sideUserMenu').style.display = 'none';
+      document.getElementById('sideAuthBtn').style.display = 'block';
+      document.getElementById('sideAuthBtn').textContent = '登录';
+      document.getElementById('sideAdminLink').style.display = 'none';
+      // 关闭下拉菜单
+      document.getElementById('userDropdown').style.display = 'none';
+      document.getElementById('sideUserDropdown').style.display = 'none';
       // 清空作品列表
       document.getElementById('worksGrid').innerHTML = '';
       document.getElementById('emptyState').style.display = 'none';
-      // 关闭下拉菜单
-      document.getElementById('userDropdown').style.display = 'none';
     }
   </script>
 </body>

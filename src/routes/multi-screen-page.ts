@@ -15,7 +15,7 @@ export async function handleMultiScreenPage(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>多屏播放 - 2026年会视频投票</title>
+  <title>多屏播放 - 2026年会作品投票</title>
   <style>
     * {
       margin: 0;

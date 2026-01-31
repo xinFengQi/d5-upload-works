@@ -65,11 +65,20 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 5. 编辑 `wrangler.toml`，填入 KV 命名空间 ID：
 ```toml
+# Workers KV 命名空间绑定
 [[kv_namespaces]]
 binding = "MY_KV"
 id = "你的生产环境KV_ID"
 preview_id = "你的预览环境KV_ID"
+
+# Durable Objects 绑定（用于投票计数）
+[[durable_objects.bindings]]
+name = "VOTE_COUNTER"
+class_name = "VoteCounter"
+script_name = "d5-upload-works"
 ```
+
+**注意**：Durable Objects 会在首次部署时自动创建，无需手动配置。
 
 ## 第四步：本地开发
 
@@ -153,7 +162,19 @@ https://d5-upload-works.your-subdomain.workers.dev
 
 ### Q: Workers KV 有延迟怎么办？
 
-Workers KV 是最终一致性存储，可能有几秒延迟。这是正常现象。如果需要强一致性，考虑使用 Durable Objects。
+Workers KV 是最终一致性存储，可能有几秒延迟。这是正常现象。系统已使用 Durable Objects 处理投票计数，保证强一致性。
+
+### Q: 投票计数准确吗？
+
+是的，系统使用 Durable Objects 实现投票计数，保证原子性和强一致性，投票数完全准确。
+
+### Q: 如何配置多屏播放？
+
+1. 登录管理员账号
+2. 访问 `/admin` 页面
+3. 在"大屏播放配置"卡片中选择布局（2x2, 2x3, 3x2, 3x3, 4x4）
+4. 点击"保存配置"
+5. 访问 `/multi-screen` 页面查看效果
 
 ### Q: 如何调试 Workers？
 
@@ -163,6 +184,6 @@ Workers KV 是最终一致性存储，可能有几秒延迟。这是正常现象
 
 ## 下一步
 
-- 查看 [README.md](./README.md) 了解完整的 API 文档
-- 查看 [ARCHITECTURE.md](./ARCHITECTURE.md) 了解项目架构
-- 开始实现业务逻辑（参考 `.cursorrules` 中的开发规范）
+- 查看 [README.md](./README.md) 了解完整的 API 文档和项目说明
+- 查看 `.cursor/rules/` 目录中的规则文件了解开发规范
+- 开始实现业务逻辑

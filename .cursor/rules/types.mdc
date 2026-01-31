@@ -26,9 +26,14 @@ globs:
 - `AuthToken`: 认证 token
 
 ## 作品类型 (work.ts)
-- `Work`: 作品完整信息
+- `Work`: 作品完整信息（包含投票数）
 - `CreateWorkRequest`: 创建作品请求
 - `UpdateWorkRequest`: 更新作品请求
+
+## 投票类型 (vote.ts)
+- `VoteRequest`: 投票请求
+- `VoteRecord`: 投票记录
+- `VoteStats`: 投票统计
 
 ## API 类型 (api.ts)
 - `ApiResponse<T>`: 统一 API 响应格式

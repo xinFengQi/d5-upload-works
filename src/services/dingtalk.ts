@@ -33,8 +33,12 @@ export class DingTalkService {
 
   /**
    * 获取企业内部应用的 access_token
+   * 注意：钉钉 API 要求在 URL 中传递 appsecret，这是 API 的限制
+   * 确保日志系统不记录包含敏感信息的 URL
    */
   async getAccessToken(): Promise<string> {
+    // 注意：钉钉 API 要求在 URL 中传递 appsecret，无法避免
+    // 确保日志系统不记录包含敏感信息的 URL
     const url = `https://oapi.dingtalk.com/gettoken?appkey=${this.appKey}&appsecret=${this.appSecret}`;
     
     const response = await fetch(url);

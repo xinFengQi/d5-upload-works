@@ -14,7 +14,7 @@ export async function handleVoteResultPage(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>投票结果 - 2026年会视频投票</title>
+  <title>投票结果 - 2026年会作品投票</title>
   <style>
     * {
       margin: 0;
@@ -385,7 +385,7 @@ export async function handleVoteResultPage(
   <div class="screen-container">
     <div class="content-wrapper">
       <div class="screen-header">
-        <h1 class="screen-title">2026年会视频投票结果</h1>
+        <h1 class="screen-title">2026年会作品投票结果</h1>
         <p class="screen-subtitle">Top 10 作品展示</p>
         <p style="font-size: 1rem; opacity: 0.8; margin-top: 0.5rem;">见证创作的力量</p>
       </div>

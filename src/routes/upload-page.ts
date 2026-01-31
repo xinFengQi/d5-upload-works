@@ -14,7 +14,7 @@ export async function handleUploadPage(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>上传作品 - 2026年会视频投票</title>
+  <title>上传作品 - 2026年会作品投票</title>
   <style>
     * {
       margin: 0;
@@ -343,6 +343,15 @@ export async function handleUploadPage(
       color: #6b7280;
       font-size: 0.875rem;
       margin-bottom: 1.5rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      background: rgba(0, 0, 0, 0.02);
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      line-height: 1.6;
     }
 
     .toast-button {
@@ -639,7 +648,34 @@ export async function handleUploadPage(
         if (data.success) {
           showSuccess('上传成功！3秒后自动跳转到投票页面');
         } else {
-          showError(data.error?.message || '上传失败，请重试');
+          // 显示错误信息和调试信息
+          const errorMessage = data.error?.message || '上传失败，请重试';
+          const debugInfo = data.error?.details?.debug;
+          
+          if (debugInfo) {
+            // 构建详细的错误信息
+            let detailedMessage = errorMessage + '\\n\\n调试信息：\\n';
+            detailedMessage += '状态码: ' + (debugInfo.status || 'N/A') + '\\n';
+            detailedMessage += '状态文本: ' + (debugInfo.statusText || 'N/A') + '\\n';
+            detailedMessage += '错误详情: ' + (debugInfo.error || 'N/A') + '\\n';
+            detailedMessage += '请求URL: ' + (debugInfo.url || 'N/A') + '\\n';
+            detailedMessage += '资源路径: ' + (debugInfo.resource || 'N/A') + '\\n';
+            detailedMessage += 'Bucket: ' + (debugInfo.bucket || 'N/A') + '\\n';
+            detailedMessage += 'Region: ' + (debugInfo.region || 'N/A') + '\\n';
+            detailedMessage += 'Endpoint: ' + (debugInfo.endpoint || 'N/A') + '\\n';
+            detailedMessage += '文件类型: ' + (debugInfo.contentType || 'N/A') + '\\n';
+            detailedMessage += '文件大小: ' + (debugInfo.fileSize ? (debugInfo.fileSize / 1024 / 1024).toFixed(2) + ' MB' : 'N/A') + '\\n';
+            detailedMessage += '文件名: ' + (debugInfo.fileName || 'N/A') + '\\n';
+            detailedMessage += 'AccessKey配置: ' + (debugInfo.hasAccessKey ? '已配置' : '未配置') + '\\n';
+            detailedMessage += 'Secret配置: ' + (debugInfo.hasSecret ? '已配置' : '未配置') + '\\n';
+            if (debugInfo.accessKeyIdPrefix) {
+              detailedMessage += 'AccessKey ID前缀: ' + debugInfo.accessKeyIdPrefix + '\\n';
+            }
+            
+            showError(detailedMessage);
+          } else {
+            showError(errorMessage);
+          }
         }
       } catch (error) {
         console.error('上传失败:', error);

@@ -14,7 +14,7 @@ export async function handleScreenPage(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>大屏展示 - 2026年会视频投票</title>
+  <title>大屏展示 - 2026年会作品投票</title>
   <style>
     * {
       margin: 0;

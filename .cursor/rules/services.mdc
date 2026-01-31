@@ -14,11 +14,13 @@ globs:
 4. 使用类型定义确保类型安全
 
 ## OSS 服务 (oss.ts)
-- 封装阿里云 OSS SDK
+- 封装阿里云 OSS REST API
+- 使用 HMAC-SHA1 签名算法生成请求签名
 - 提供 `uploadFile(file: File, key: string)` 方法
 - 提供 `deleteFile(key: string)` 方法
 - 提供 `getFileUrl(key: string)` 方法
-- 注意：在 Workers 环境中，需要使用 fetch API 调用 OSS SDK
+- 注意：在 Workers 环境中，使用 fetch API 调用 OSS REST API
+- 文件存储路径格式：`works/{userId}/{workId}.{extension}`
 
 ## 钉钉服务 (dingtalk.ts)
 - 封装钉钉 OAuth 认证流程
@@ -35,12 +37,41 @@ globs:
 - 提供 `list(prefix?: string)` 方法
 - 注意 KV 的最终一致性特性
 
+## 投票计数服务 (vote-counter.ts)
+- 封装 Durable Objects 调用
+- 提供 `vote(workId: string, userId: string, userName: string)` 方法
+- 提供 `getStats(workId: string)` 方法
+- 提供 `getAllStats(workIds: string[])` 方法
+- 保证原子性和强一致性
+- 每个作品使用独立的 Durable Object 实例（使用 workId 作为 ID）
+
+### Durable Objects 部署
+- 首次部署时，Wrangler 会自动创建 Durable Objects 类，无需手动配置
+- 配置在 `wrangler.toml` 中：
+  ```toml
+  [[durable_objects.bindings]]
+  name = "VOTE_COUNTER"
+  class_name = "VoteCounter"
+  script_name = "d5-upload-works"
+  ```
+- 验证部署：检查 Cloudflare Dashboard > Workers & Pages > Durable Objects，应该能看到 `VoteCounter` 类
+- 工作原理：
+  - 使用 `workId` 作为 Durable Object 的 ID
+  - 每个作品都有自己独立的计数器实例
+  - 所有对该作品的投票操作都在同一个实例中执行（保证原子性）
+- 优势：
+  - 原子性保证：投票计数操作是原子的，不会丢失
+  - 强一致性：读取的数据始终是最新的
+  - 并发安全：多个用户同时投票不会冲突
+  - 数据准确：投票数完全准确，不会出现计数错误
+
 ## 服务使用模式
 在路由处理中使用服务：
 ```typescript
 const ossService = new OSSService(env);
 const dingtalkService = new DingTalkService(env);
 const kvService = new KVService(env.MY_KV);
+const voteCounterService = new VoteCounterService(env);
 ```
 
 ## 错误处理

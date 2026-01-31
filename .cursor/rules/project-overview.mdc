@@ -11,7 +11,8 @@ alwaysApply: true
 ## 技术栈
 - **运行时**: Cloudflare Workers (使用 Wrangler 部署)
 - **存储**: Cloudflare Workers KV
-- **文件存储**: 阿里云 OSS (通过 SDK)
+- **强一致性存储**: Cloudflare Durable Objects（投票计数）
+- **文件存储**: 阿里云 OSS (通过 REST API)
 - **认证**: 钉钉 OAuth 登录
 - **语言**: TypeScript
 - **构建工具**: Wrangler / esbuild
@@ -23,22 +24,37 @@ alwaysApply: true
 ├── src/
 │   ├── index.ts              # Workers 入口文件
 │   ├── router.ts             # 路由分发
+│   ├── router.ts             # 路由分发
 │   ├── routes/               # 路由处理
 │   │   ├── auth.ts          # 认证相关路由（钉钉登录）
 │   │   ├── upload.ts        # 文件上传路由
-│   │   └── works.ts         # 作品管理路由
+│   │   ├── works.ts         # 作品管理路由
+│   │   ├── vote.ts          # 投票路由
+│   │   ├── screen-config.ts # 大屏配置路由
+│   │   ├── home.ts          # 首页
+│   │   ├── upload-page.ts   # 上传页面
+│   │   ├── screen-page.ts   # 单屏播放页面
+│   │   ├── multi-screen-page.ts # 多屏播放页面
+│   │   ├── vote-result-page.ts  # 投票结果页面
+│   │   ├── admin-page.ts    # 管理员页面
+│   │   └── login-page.ts    # 登录页面
 │   ├── services/            # 业务服务层
 │   │   ├── oss.ts           # 阿里云 OSS 服务
 │   │   ├── dingtalk.ts      # 钉钉认证服务
-│   │   └── kv.ts            # KV 存储服务
+│   │   ├── kv.ts            # KV 存储服务
+│   │   └── vote-counter.ts   # 投票计数服务（Durable Objects）
+│   ├── durable-objects/     # Durable Objects
+│   │   └── vote-counter.ts  # 投票计数器实现
 │   ├── utils/               # 工具函数
 │   │   ├── env.ts           # 环境变量验证
 │   │   ├── response.ts      # 响应格式化
-│   │   └── validation.ts    # 数据验证
+│   │   ├── validation.ts    # 数据验证
+│   │   └── crypto.ts        # 加密工具
 │   └── types/               # TypeScript 类型定义
 │       ├── env.d.ts         # 环境变量类型
 │       ├── user.ts          # 用户类型
 │       ├── work.ts          # 作品类型
+│       ├── vote.ts          # 投票类型
 │       └── api.ts           # API 类型
 ├── wrangler.toml            # Wrangler 配置文件
 ├── package.json             # 项目依赖
@@ -59,24 +75,41 @@ alwaysApply: true
 - 记录上传信息到 KV
 
 #### 3. 作品管理模块 (works.ts)
-- 作品列表查询
+- 作品列表查询（包含投票数）
 - 作品详情获取
-- 作品删除/更新
+- 作品删除/更新（同时删除 OSS 文件）
 
-#### 4. OSS 服务 (oss.ts)
-- 封装阿里云 OSS SDK
-- 处理文件上传逻辑
+#### 4. 投票模块 (vote.ts)
+- 使用 Durable Objects 实现实时投票计数
+- 防止重复投票
+- 投票统计和查询
+
+#### 5. 多屏播放模块
+- 大屏配置管理（screen-config.ts）
+- 单屏播放页面（screen-page.ts）- 循环播放
+- 多屏播放页面（multi-screen-page.ts）- 可配置布局（2x2, 2x3, 3x2, 3x3, 4x4）
+
+#### 6. OSS 服务 (oss.ts)
+- 封装阿里云 OSS REST API
+- 处理文件上传逻辑（使用 HMAC-SHA1 签名）
+- 处理文件删除逻辑
 - 生成文件访问 URL
 
-#### 5. 钉钉服务 (dingtalk.ts)
+#### 7. 钉钉服务 (dingtalk.ts)
 - 钉钉 OAuth 认证
 - 用户信息获取
 - Token 管理
 
-#### 6. KV 服务 (kv.ts)
+#### 8. KV 服务 (kv.ts)
 - 封装 Workers KV 操作
 - 用户数据存储
 - 作品数据存储
+- 投票记录存储
+
+#### 9. 投票计数服务 (vote-counter.ts)
+- 封装 Durable Objects 调用
+- 提供投票计数 API
+- 保证原子性和强一致性
 
 ## 开发流程
 
@@ -109,11 +142,125 @@ npm run deploy
 - 注意 KV 的读写限制
 
 ### 阿里云 OSS
-- 使用 Workers 的 fetch API 调用 OSS SDK
-- 注意文件大小限制
-- 考虑使用预签名 URL 进行客户端直传（可选）
+- 使用 Workers 的 fetch API 调用 OSS REST API
+- 使用 HMAC-SHA1 签名算法生成请求签名
+- 注意文件大小限制（建议 100MB 以内）
+- 文件存储路径：`works/{userId}/{workId}.{extension}`
+- 删除作品时同时删除 OSS 中的文件
 
 ### 钉钉登录
 - 正确处理 OAuth 回调
 - 管理好用户会话
 - 注意 token 过期处理
+
+### Durable Objects（投票计数）
+- 使用 Durable Objects 实现投票计数，保证强一致性
+- 每个作品使用独立的 Durable Object 实例
+- 使用 `workId` 作为 Durable Object 的 ID
+- 投票操作是原子的，不会丢失或重复计数
+- 与 Workers KV 的区别：
+  - Workers KV：最终一致性，适合缓存、配置
+  - Durable Objects：强一致性，支持原子操作和事务，适合计数器、状态管理
+- 部署：首次部署时 Wrangler 会自动创建 Durable Objects 类，无需手动配置
+- 实现文件：
+  - `src/durable-objects/vote-counter.ts` - 投票计数器实现
+  - `src/services/vote-counter.ts` - 封装 Durable Objects 调用
+
+## 数据流
+
+### 用户认证流程
+```
+用户 → GET /auth/dingtalk
+     ↓
+Workers → 生成 state，重定向到钉钉登录页面
+     ↓
+钉钉 → 用户登录，回调到 /auth/callback?code=xxx&state=xxx
+     ↓
+Workers → 使用 code 换取 access_token
+     ↓
+Workers → 使用 access_token 获取用户信息
+     ↓
+Workers → 生成 session token，存储到 KV
+     ↓
+Workers → 返回 session token 给客户端
+```
+
+### 文件上传流程
+```
+客户端 → POST /api/upload (multipart/form-data)
+       ↓
+Workers → 验证 Authorization header (session token)
+       ↓
+Workers → 验证文件类型和大小
+       ↓
+Workers → 调用 OSS 服务上传文件
+       ↓
+阿里云 OSS → 返回文件 URL
+       ↓
+Workers → 保存作品信息到 KV (用户ID、文件URL、元数据等)
+       ↓
+Workers → 返回作品信息给客户端
+```
+
+### 投票流程
+```
+客户端 → POST /api/vote (workId)
+       ↓
+Workers → 验证 Authorization header
+       ↓
+Workers → 检查用户是否已投票（从 KV 查询）
+       ↓
+Workers → 获取 Durable Object 实例（使用 workId 作为 ID）
+       ↓
+Durable Object → 原子操作：
+  - 检查是否已投票
+  - 增加投票数
+  - 记录投票者
+       ↓
+Workers → 保存投票记录到 KV
+       ↓
+Workers → 返回投票结果（强一致性保证）
+```
+
+### 多屏播放流程
+```
+客户端 → GET /multi-screen
+       ↓
+Workers → 从 KV 获取大屏配置（gridLayout, loop 等）
+       ↓
+Workers → 从 KV 获取所有作品列表
+       ↓
+Workers → 返回 HTML 页面（包含配置和作品数据）
+       ↓
+浏览器 → 根据 gridLayout 渲染网格布局
+       ↓
+浏览器 → 为每个单元格创建独立的播放队列
+       ↓
+浏览器 → 循环播放视频（支持循环模式）
+```
+
+## 存储设计
+
+### Workers KV 数据结构
+- 用户会话：`session:{token}` - UserSession (TTL: 7天)
+- 用户信息：`user:{userId}` - DingTalkUser (永久)
+- 作品信息：`work:{workId}` - Work (永久)
+- 用户作品索引：`user_works:{userId}:{workId}` - workId (永久)
+- 所有作品索引：`all_works` - workId[] (永久)
+- 投票记录：`vote:{workId}:{userId}` - VoteRecord (永久)
+- 大屏配置：`screen_config` - ScreenConfig (永久)
+
+### 阿里云 OSS 存储结构
+```
+bucket/
+├── works/
+│   ├── {userId}/
+│   │   ├── {workId}.{extension}
+```
+
+### Durable Objects 存储
+- 每个作品使用独立的 Durable Object 实例
+- 使用 `workId` 作为 Durable Object 的 ID
+- 存储内容：
+  - 投票总数（原子计数）
+  - 投票者列表（用于防重复投票）

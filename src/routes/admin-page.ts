@@ -1069,7 +1069,6 @@ function getAdminPageHTML(): string {
         }
 
         const count = data.data?.count || 0;
-        console.log('Work ' + workId + ' vote count: ' + count);
         return count;
       } catch (error) {
         console.error('Error getting vote count for work ' + workId + ':', error);
