@@ -39,9 +39,35 @@ export async function handleLoginPage(
       box-sizing: border-box;
     }
 
+    :root {
+      /* 主题色 - 专业蓝色系 */
+      --primary-color: #2563eb;
+      --primary-dark: #1e40af;
+      --primary-light: #3b82f6;
+      --secondary-color: #64748b;
+      
+      /* 背景色 */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f9fafb;
+      
+      /* 文字色 */
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      
+      /* 边框和分割线 */
+      --border-color: #e5e7eb;
+      
+      /* 功能色 */
+      --danger-color: #ef4444;
+      --success-color: #10b981;
+      
+      /* 渐变 - 使用主题色 */
+      --gradient: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -73,7 +99,7 @@ export async function handleLoginPage(
       font-size: 2rem;
       font-weight: 700;
       margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -108,20 +134,20 @@ export async function handleLoginPage(
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       color: white;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     }
 
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5);
     }
 
     .btn-outline {
       background: transparent;
-      color: #667eea;
-      border: 2px solid #667eea;
+      color: var(--primary-color);
+      border: 2px solid var(--primary-color);
     }
 
     .btn-outline:hover {
@@ -225,8 +251,8 @@ export async function handleLoginPage(
 
     .form-input:focus {
       outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
     .form-input.error {
@@ -302,8 +328,8 @@ export async function handleLoginPage(
     }
 
     .quick-name-btn:hover {
-      border-color: #667eea;
-      color: #667eea;
+      border-color: var(--primary-color);
+      color: var(--primary-color);
       background: #f9fafb;
     }
   </style>
@@ -499,6 +525,44 @@ export async function handleLoginPage(
         showAdminError('登录失败，请重试');
       }
     }
+
+    // 加载并应用主题配置
+    async function loadAndApplyTheme() {
+      try {
+        const response = await fetch('/api/screen-config');
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.theme) {
+          const theme = data.data.theme;
+          const root = document.documentElement;
+          
+          if (theme.primaryColor) {
+            root.style.setProperty('--primary-color', theme.primaryColor);
+          }
+          if (theme.primaryDark) {
+            root.style.setProperty('--primary-dark', theme.primaryDark);
+          }
+          if (theme.primaryLight) {
+            root.style.setProperty('--primary-light', theme.primaryLight);
+          }
+          if (theme.secondaryColor) {
+            root.style.setProperty('--secondary-color', theme.secondaryColor);
+          }
+          
+          // 更新渐变
+          const primaryDark = theme.primaryDark || '#1e40af';
+          const primaryColor = theme.primaryColor || '#2563eb';
+          root.style.setProperty('--gradient', \`linear-gradient(135deg, \${primaryDark} 0%, \${primaryColor} 100%)\`);
+        }
+      } catch (error) {
+        console.error('Load theme error:', error);
+      }
+    }
+
+    // 页面加载时应用主题
+    window.addEventListener('load', () => {
+      loadAndApplyTheme();
+    });
   </script>
 </body>
 </html>`;

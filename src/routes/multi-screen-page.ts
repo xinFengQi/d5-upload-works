@@ -94,8 +94,8 @@ export async function handleMultiScreenPage(
     }
 
     .video-cell.playing {
-      border-color: rgba(102, 126, 234, 0.4);
-      box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
     }
 
     .video-cell video {
@@ -383,8 +383,43 @@ export async function handleMultiScreenPage(
       return text.substring(0, maxLength) + '...';
     }
 
+    // 加载并应用主题配置
+    async function loadAndApplyTheme() {
+      try {
+        const response = await fetch('/api/screen-config');
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.theme) {
+          const theme = data.data.theme;
+          const root = document.documentElement;
+          
+          if (theme.primaryColor) {
+            root.style.setProperty('--primary-color', theme.primaryColor);
+          }
+          if (theme.primaryDark) {
+            root.style.setProperty('--primary-dark', theme.primaryDark);
+          }
+          if (theme.primaryLight) {
+            root.style.setProperty('--primary-light', theme.primaryLight);
+          }
+          if (theme.secondaryColor) {
+            root.style.setProperty('--secondary-color', theme.secondaryColor);
+          }
+          
+          // 更新渐变
+          const primaryDark = theme.primaryDark || '#1e40af';
+          const primaryColor = theme.primaryColor || '#2563eb';
+          root.style.setProperty('--gradient', \`linear-gradient(135deg, \${primaryDark} 0%, \${primaryColor} 100%)\`);
+        }
+      } catch (error) {
+        console.error('Load theme error:', error);
+      }
+    }
+
     // 页面加载
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+      // 先加载主题配置
+      await loadAndApplyTheme();
       loadWorks();
     });
   </script>

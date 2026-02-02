@@ -24,22 +24,40 @@ export async function handleVoteResultPage(
     }
 
     :root {
-      --primary-color: #6366f1;
-      --secondary-color: #8b5cf6;
-      --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      /* 主题色 - 专业蓝色系 */
+      --primary-color: #2563eb;
+      --primary-dark: #1e40af;
+      --primary-light: #3b82f6;
+      --secondary-color: #64748b;
+      
+      /* 背景色 */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f9fafb;
+      
+      /* 文字色 */
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      
+      /* 边框和分割线 */
+      --border-color: #e5e7eb;
+      
+      /* 功能色 */
+      --danger-color: #ef4444;
+      --success-color: #10b981;
+      
+      /* 渐变 - 使用主题色 */
+      --gradient: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+      
+      /* 奖牌色 */
       --gold: #ffd700;
       --silver: #c0c0c0;
       --bronze: #cd7f32;
-      --text-primary: #1f2937;
-      --text-secondary: #6b7280;
-      --bg-primary: #ffffff;
-      --bg-secondary: #f9fafb;
     }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
       color: var(--text-primary);
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       min-height: 100vh;
       overflow-x: hidden;
     }
@@ -511,8 +529,43 @@ export async function handleVoteResultPage(
       \`).join('');
     }
 
+    // 加载并应用主题配置
+    async function loadAndApplyTheme() {
+      try {
+        const response = await fetch('/api/screen-config');
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.theme) {
+          const theme = data.data.theme;
+          const root = document.documentElement;
+          
+          if (theme.primaryColor) {
+            root.style.setProperty('--primary-color', theme.primaryColor);
+          }
+          if (theme.primaryDark) {
+            root.style.setProperty('--primary-dark', theme.primaryDark);
+          }
+          if (theme.primaryLight) {
+            root.style.setProperty('--primary-light', theme.primaryLight);
+          }
+          if (theme.secondaryColor) {
+            root.style.setProperty('--secondary-color', theme.secondaryColor);
+          }
+          
+          // 更新渐变
+          const primaryDark = theme.primaryDark || '#1e40af';
+          const primaryColor = theme.primaryColor || '#2563eb';
+          root.style.setProperty('--gradient', \`linear-gradient(135deg, \${primaryDark} 0%, \${primaryColor} 100%)\`);
+        }
+      } catch (error) {
+        console.error('Load theme error:', error);
+      }
+    }
+
     // 页面加载时获取数据
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+      // 先加载主题配置
+      await loadAndApplyTheme();
       loadTopWorks();
       // 每30秒刷新一次
       setInterval(loadTopWorks, 30000);

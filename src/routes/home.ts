@@ -25,19 +25,37 @@ export async function handleHomeRoute(
     }
 
     :root {
-      --primary-color: #6366f1;
-      --primary-dark: #4f46e5;
-      --secondary-color: #8b5cf6;
-      --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --gradient-light: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-      --text-primary: #1f2937;
-      --text-secondary: #6b7280;
+      /* 主题色 - 专业蓝色系 */
+      --primary-color: #2563eb;
+      --primary-dark: #1e40af;
+      --primary-light: #3b82f6;
+      --secondary-color: #64748b;
+      
+      /* 背景色 */
       --bg-primary: #ffffff;
       --bg-secondary: #f9fafb;
+      
+      /* 文字色 */
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      
+      /* 边框和分割线 */
       --border-color: #e5e7eb;
+      
+      /* 功能色 */
+      --danger-color: #ef4444;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --info-color: #3b82f6;
+      
+      /* 渐变 - 使用主题色 */
+      --gradient: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+      --gradient-light: linear-gradient(135deg, rgba(30, 64, 175, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+      
+      /* 阴影 */
       --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
       --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.3);
+      --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.3);
     }
 
     html {
@@ -328,12 +346,12 @@ export async function handleHomeRoute(
     .btn-primary {
       background: var(--gradient);
       color: white;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     }
 
     .btn-primary:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5);
     }
 
     .btn-primary:disabled {
@@ -651,9 +669,9 @@ export async function handleHomeRoute(
 
     .work-card:hover {
       transform: translateY(-12px);
-      box-shadow: 0 20px 40px rgba(102, 126, 234, 0.15), 
+      box-shadow: 0 20px 40px rgba(37, 99, 235, 0.15), 
                   0 8px 16px rgba(0, 0, 0, 0.1),
-                  0 0 0 1px rgba(102, 126, 234, 0.1);
+                  0 0 0 1px rgba(37, 99, 235, 0.1);
     }
 
     .work-card:hover::before {
@@ -730,7 +748,7 @@ export async function handleHomeRoute(
 
     .work-card:hover .play-icon {
       transform: scale(1.15);
-      box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5),
+      box-shadow: 0 12px 32px rgba(37, 99, 235, 0.5),
                   0 0 0 6px rgba(255, 255, 255, 0.3);
     }
 
@@ -814,7 +832,7 @@ export async function handleHomeRoute(
       color: white;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
     }
 
     .vote-btn::before {
@@ -837,7 +855,7 @@ export async function handleHomeRoute(
 
     .vote-btn:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
     }
 
     .vote-btn:active:not(:disabled) {
@@ -1023,7 +1041,7 @@ export async function handleHomeRoute(
       border: none;
       font-size: 1.75rem;
       cursor: pointer;
-      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 999;
       display: flex;
@@ -1034,7 +1052,7 @@ export async function handleHomeRoute(
 
     .fab:hover {
       transform: scale(1.15) rotate(90deg);
-      box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+      box-shadow: 0 12px 32px rgba(37, 99, 235, 0.6);
     }
 
     @media (max-width: 768px) {
@@ -1507,7 +1525,58 @@ export async function handleHomeRoute(
     });
 
     // 页面加载时检查登录状态并加载作品
-    window.addEventListener('load', () => {
+    // 加载并应用主题配置
+    async function loadAndApplyTheme() {
+      try {
+        const response = await fetch('/api/screen-config');
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.theme) {
+          const theme = data.data.theme;
+          const root = document.documentElement;
+          
+          if (theme.primaryColor) {
+            root.style.setProperty('--primary-color', theme.primaryColor);
+          }
+          if (theme.primaryDark) {
+            root.style.setProperty('--primary-dark', theme.primaryDark);
+          }
+          if (theme.primaryLight) {
+            root.style.setProperty('--primary-light', theme.primaryLight);
+          }
+          if (theme.secondaryColor) {
+            root.style.setProperty('--secondary-color', theme.secondaryColor);
+          }
+          
+          // 更新渐变
+          const primaryDark = theme.primaryDark || '#1e40af';
+          const primaryColor = theme.primaryColor || '#2563eb';
+          root.style.setProperty('--gradient', \`linear-gradient(135deg, \${primaryDark} 0%, \${primaryColor} 100%)\`);
+          
+          // 更新渐变浅色版本
+          const darkRgb = hexToRgb(primaryDark);
+          const colorRgb = hexToRgb(primaryColor);
+          root.style.setProperty('--gradient-light', \`linear-gradient(135deg, rgba(\${darkRgb}, 0.1) 0%, rgba(\${colorRgb}, 0.1) 100%)\`);
+          
+          // 更新阴影发光效果
+          root.style.setProperty('--shadow-glow', \`0 0 20px rgba(\${colorRgb}, 0.3)\`);
+        }
+      } catch (error) {
+        console.error('Load theme error:', error);
+      }
+    }
+
+    // 十六进制颜色转RGB（用于rgba）
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);
+      return result ? 
+        \`\${parseInt(result[1], 16)}, \${parseInt(result[2], 16)}, \${parseInt(result[3], 16)}\` : 
+        '37, 99, 235';
+    }
+
+    window.addEventListener('load', async () => {
+      // 先加载主题配置
+      await loadAndApplyTheme();
       // 检查 URL 中是否有 token（从登录回调返回）
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');

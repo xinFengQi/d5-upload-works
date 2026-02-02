@@ -49,7 +49,7 @@ function getLoginPageHTML(): string {
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -77,7 +77,7 @@ function getLoginPageHTML(): string {
       font-size: 2rem;
       font-weight: 700;
       margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -112,8 +112,8 @@ function getLoginPageHTML(): string {
 
     .form-input:focus {
       outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
     .form-input.error {
@@ -144,14 +144,14 @@ function getLoginPageHTML(): string {
       border: none;
       cursor: pointer;
       transition: all 0.3s ease;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--gradient);
       color: white;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     }
 
     .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5);
     }
 
     .btn:disabled {
@@ -280,16 +280,38 @@ function getAdminPageHTML(): string {
     }
 
     :root {
-      --primary-color: #667eea;
-      --secondary-color: #764ba2;
+      /* 主题色 - 专业蓝色系 */
+      --primary-color: #2563eb;
+      --primary-dark: #1e40af;
+      --primary-light: #3b82f6;
+      --secondary-color: #64748b;
+      
+      /* 背景色 */
       --bg-primary: #f9fafb;
       --bg-secondary: #ffffff;
+      
+      /* 文字色 */
       --text-primary: #1f2937;
       --text-secondary: #6b7280;
+      
+      /* 边框和分割线 */
       --border-color: #e5e7eb;
+      
+      /* 功能色 */
       --danger-color: #ef4444;
       --success-color: #10b981;
-      --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --warning-color: #f59e0b;
+      --info-color: #3b82f6;
+      
+      /* 渐变 - 使用主题色 */
+      --gradient: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+      --gradient-light: linear-gradient(135deg, rgba(30, 64, 175, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+      
+      /* 阴影 */
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
 
     body {
@@ -494,13 +516,88 @@ function getAdminPageHTML(): string {
     .config-select:focus {
       outline: none;
       border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
     .config-actions {
       display: flex;
       gap: 0.75rem;
       flex-wrap: wrap;
+    }
+
+    /* 主题配置样式 */
+    .theme-config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+
+    .theme-color-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .theme-color-label {
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 0.9375rem;
+    }
+
+    .color-picker-wrapper {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .color-picker {
+      width: 60px;
+      height: 40px;
+      border: 2px solid var(--border-color);
+      border-radius: 0.5rem;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+      transition: all 0.2s ease;
+    }
+
+    .color-picker:hover {
+      border-color: var(--primary-color);
+      transform: scale(1.05);
+    }
+
+    .color-picker::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .color-picker::-webkit-color-swatch {
+      border: none;
+      border-radius: 0.375rem;
+    }
+
+    .color-input {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      border: 2px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.9375rem;
+      font-family: 'Courier New', monospace;
+      transition: all 0.2s ease;
+    }
+
+    .color-input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    @media (max-width: 768px) {
+      .theme-config-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
     }
 
     .config-link {
@@ -1005,10 +1102,10 @@ function getAdminPageHTML(): string {
   </nav>
 
   <!-- 登录表单（默认显示） -->
-  <div id="loginOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem;">
+  <div id="loginOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--gradient); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem;">
     <div class="login-container" style="background: white; border-radius: 1.5rem; padding: 3rem; max-width: 450px; width: 100%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); text-align: center;">
       <img src="https://cn.official.d5render.com/wp-content/uploads/d5-logo-100.png" alt="D5 Render" style="height: 60px; width: auto; margin-bottom: 1rem;">
-      <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">管理员登录</h1>
+      <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">管理员登录</h1>
       <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 2rem;">请输入管理员密码以访问管理页面</p>
       
       <form id="adminLoginForm" onsubmit="handleAdminLogin(event)" style="text-align: left;">
@@ -1024,7 +1121,7 @@ function getAdminPageHTML(): string {
           <div id="adminError" style="display: none; margin-top: 0.5rem; padding: 0.75rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 0.5rem; color: #dc2626; font-size: 0.875rem;"></div>
         </div>
         
-        <button type="submit" class="btn" id="loginBtn" style="width: 100%; padding: 0.875rem; border-radius: 0.5rem; font-weight: 600; font-size: 1rem; border: none; cursor: pointer; transition: all 0.3s ease; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);">登录</button>
+        <button type="submit" class="btn" id="loginBtn" style="width: 100%; padding: 0.875rem; border-radius: 0.5rem; font-weight: 600; font-size: 1rem; border: none; cursor: pointer; transition: all 0.3s ease; background: var(--gradient); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);">登录</button>
       </form>
     </div>
   </div>
@@ -1048,6 +1145,51 @@ function getAdminPageHTML(): string {
         <div class="stat-label">参与用户</div>
         <div class="stat-value" id="totalUsers">-</div>
       </div>
+    </div>
+
+    <!-- 主题配置卡片 -->
+    <div class="config-card">
+      <div class="config-content">
+        <div class="config-header-inline">
+          <h2 class="config-title">主题配置</h2>
+          <p class="config-subtitle">自定义系统主题颜色</p>
+        </div>
+        <div class="theme-config-grid">
+          <div class="theme-color-group">
+            <label class="theme-color-label">主色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="primaryColorPicker" class="color-picker" value="#2563eb">
+              <input type="text" id="primaryColorInput" class="color-input" value="#2563eb" maxlength="7">
+            </div>
+          </div>
+          <div class="theme-color-group">
+            <label class="theme-color-label">深色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="primaryDarkPicker" class="color-picker" value="#1e40af">
+              <input type="text" id="primaryDarkInput" class="color-input" value="#1e40af" maxlength="7">
+            </div>
+          </div>
+          <div class="theme-color-group">
+            <label class="theme-color-label">浅色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="primaryLightPicker" class="color-picker" value="#3b82f6">
+              <input type="text" id="primaryLightInput" class="color-input" value="#3b82f6" maxlength="7">
+            </div>
+          </div>
+          <div class="theme-color-group">
+            <label class="theme-color-label">辅助色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="secondaryColorPicker" class="color-picker" value="#64748b">
+              <input type="text" id="secondaryColorInput" class="color-input" value="#64748b" maxlength="7">
+            </div>
+          </div>
+        </div>
+        <div class="config-actions">
+          <button class="btn" onclick="saveThemeConfig()">保存主题</button>
+          <button class="btn btn-outline" onclick="resetThemeConfig()">重置默认</button>
+        </div>
+      </div>
+      <div id="themeConfigMessage" class="config-message"></div>
     </div>
 
     <!-- 大屏配置卡片 -->
@@ -1544,21 +1686,214 @@ function getAdminPageHTML(): string {
       }
     }
 
-    // 加载屏幕配置
+    // 加载屏幕配置和主题配置
     async function loadScreenConfig() {
       try {
         const response = await fetch('/api/screen-config');
         const data = await response.json();
         
         if (data.success && data.data) {
+          // 加载分屏配置
           const select = document.getElementById('gridLayoutSelect');
           if (select) {
             select.value = data.data.gridLayout || '2x2';
+          }
+
+          // 加载主题配置
+          if (data.data.theme) {
+            const theme = data.data.theme;
+            if (theme.primaryColor) {
+              document.getElementById('primaryColorPicker').value = theme.primaryColor;
+              document.getElementById('primaryColorInput').value = theme.primaryColor;
+            }
+            if (theme.primaryDark) {
+              document.getElementById('primaryDarkPicker').value = theme.primaryDark;
+              document.getElementById('primaryDarkInput').value = theme.primaryDark;
+            }
+            if (theme.primaryLight) {
+              document.getElementById('primaryLightPicker').value = theme.primaryLight;
+              document.getElementById('primaryLightInput').value = theme.primaryLight;
+            }
+            if (theme.secondaryColor) {
+              document.getElementById('secondaryColorPicker').value = theme.secondaryColor;
+              document.getElementById('secondaryColorInput').value = theme.secondaryColor;
+            }
+            
+            // 应用主题到当前页面
+            applyTheme(theme);
           }
         }
       } catch (error) {
         console.error('Load screen config error:', error);
       }
+    }
+
+    // 应用主题到页面
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      if (theme.primaryColor) {
+        root.style.setProperty('--primary-color', theme.primaryColor);
+      }
+      if (theme.primaryDark) {
+        root.style.setProperty('--primary-dark', theme.primaryDark);
+      }
+      if (theme.primaryLight) {
+        root.style.setProperty('--primary-light', theme.primaryLight);
+      }
+      if (theme.secondaryColor) {
+        root.style.setProperty('--secondary-color', theme.secondaryColor);
+      }
+      
+      // 更新渐变
+      const primaryDark = theme.primaryDark || getComputedStyle(root).getPropertyValue('--primary-dark').trim() || '#1e40af';
+      const primaryColor = theme.primaryColor || getComputedStyle(root).getPropertyValue('--primary-color').trim() || '#2563eb';
+      root.style.setProperty('--gradient', \`linear-gradient(135deg, \${primaryDark} 0%, \${primaryColor} 100%)\`);
+    }
+
+    // 同步颜色选择器和输入框
+    function setupColorPickers() {
+      const colorPairs = [
+        { picker: 'primaryColorPicker', input: 'primaryColorInput' },
+        { picker: 'primaryDarkPicker', input: 'primaryDarkInput' },
+        { picker: 'primaryLightPicker', input: 'primaryLightInput' },
+        { picker: 'secondaryColorPicker', input: 'secondaryColorInput' },
+      ];
+
+      colorPairs.forEach(({ picker, input }) => {
+        const pickerEl = document.getElementById(picker);
+        const inputEl = document.getElementById(input);
+
+        // 选择器变化时更新输入框
+        pickerEl.addEventListener('input', (e) => {
+          inputEl.value = e.target.value.toUpperCase();
+          // 实时预览主题
+          previewTheme();
+        });
+
+        // 输入框变化时更新选择器
+        inputEl.addEventListener('input', (e) => {
+          const value = e.target.value;
+          if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+            pickerEl.value = value;
+            // 实时预览主题
+            previewTheme();
+          }
+        });
+
+        // 输入框失焦时验证格式
+        inputEl.addEventListener('blur', (e) => {
+          const value = e.target.value;
+          if (!/^#[0-9A-Fa-f]{6}$/.test(value)) {
+            // 恢复为选择器的值
+            e.target.value = pickerEl.value.toUpperCase();
+          }
+        });
+      });
+    }
+
+    // 预览主题（实时更新当前页面）
+    function previewTheme() {
+      const theme = {
+        primaryColor: document.getElementById('primaryColorInput').value,
+        primaryDark: document.getElementById('primaryDarkInput').value,
+        primaryLight: document.getElementById('primaryLightInput').value,
+        secondaryColor: document.getElementById('secondaryColorInput').value,
+      };
+      applyTheme(theme);
+    }
+
+    // 保存主题配置
+    async function saveThemeConfig() {
+      try {
+        const token = getAuthToken();
+        if (!token) {
+          showToast('未登录，请重新登录', 'error');
+          window.location.reload();
+          return;
+        }
+
+        const theme = {
+          primaryColor: document.getElementById('primaryColorInput').value,
+          primaryDark: document.getElementById('primaryDarkInput').value,
+          primaryLight: document.getElementById('primaryLightInput').value,
+          secondaryColor: document.getElementById('secondaryColorInput').value,
+        };
+
+        // 验证颜色格式
+        if (!/^#[0-9A-Fa-f]{6}$/.test(theme.primaryColor) ||
+            !/^#[0-9A-Fa-f]{6}$/.test(theme.primaryDark) ||
+            !/^#[0-9A-Fa-f]{6}$/.test(theme.primaryLight) ||
+            !/^#[0-9A-Fa-f]{6}$/.test(theme.secondaryColor)) {
+          showToast('颜色格式不正确，请使用十六进制格式（如 #2563eb）', 'error');
+          return;
+        }
+
+        // 获取现有配置
+        const configResponse = await fetch('/api/screen-config');
+        const configData = await configResponse.json();
+        const gridLayout = configData.success && configData.data ? configData.data.gridLayout : '2x2';
+
+        const response = await fetch('/api/screen-config', {
+          method: 'POST',
+          headers: {
+            'Authorization': \`Bearer \${token}\`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ gridLayout, theme }),
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          showToast('主题配置保存成功', 'success');
+          const messageEl = document.getElementById('themeConfigMessage');
+          if (messageEl) {
+            messageEl.textContent = '✓ 主题配置已保存';
+            messageEl.className = 'config-message';
+            messageEl.style.display = 'block';
+            messageEl.style.background = '#d1fae5';
+            messageEl.style.color = '#065f46';
+            messageEl.style.border = '1px solid #6ee7b7';
+            setTimeout(() => {
+              messageEl.style.display = 'none';
+            }, 3000);
+          }
+        } else {
+          showToast(data.error?.message || '保存失败', 'error');
+        }
+      } catch (error) {
+        console.error('Save theme config error:', error);
+        showToast('保存失败，请重试', 'error');
+      }
+    }
+
+    // 重置主题配置为默认值
+    function resetThemeConfig() {
+      if (!confirm('确定要重置主题配置为默认值吗？')) {
+        return;
+      }
+
+      const defaultTheme = {
+        primaryColor: '#2563eb',
+        primaryDark: '#1e40af',
+        primaryLight: '#3b82f6',
+        secondaryColor: '#64748b',
+      };
+
+      document.getElementById('primaryColorPicker').value = defaultTheme.primaryColor;
+      document.getElementById('primaryColorInput').value = defaultTheme.primaryColor;
+      document.getElementById('primaryDarkPicker').value = defaultTheme.primaryDark;
+      document.getElementById('primaryDarkInput').value = defaultTheme.primaryDark;
+      document.getElementById('primaryLightPicker').value = defaultTheme.primaryLight;
+      document.getElementById('primaryLightInput').value = defaultTheme.primaryLight;
+      document.getElementById('secondaryColorPicker').value = defaultTheme.secondaryColor;
+      document.getElementById('secondaryColorInput').value = defaultTheme.secondaryColor;
+
+      // 应用默认主题
+      applyTheme(defaultTheme);
+      
+      // 保存到服务器
+      saveThemeConfig();
     }
 
     // 保存屏幕配置
@@ -1638,8 +1973,10 @@ function getAdminPageHTML(): string {
           document.getElementById('adminContent').style.display = 'block';
           // 加载作品列表
           loadWorks();
-          // 加载屏幕配置
+          // 加载屏幕配置和主题配置
           loadScreenConfig();
+          // 设置颜色选择器同步
+          setupColorPickers();
         } else {
           // 不是管理员，显示登录表单
           document.getElementById('loginOverlay').style.display = 'flex';
