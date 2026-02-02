@@ -35,6 +35,10 @@ export async function handleVoteRoutes(
   // 投票（需要认证）
   if (path === '/api/vote' && method === 'POST') {
     try {
+      if (!userId) {
+        return createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401);
+      }
+
       const body: VoteRequest = await request.json();
       const { workId } = body;
 

@@ -185,17 +185,15 @@ export async function handleWorksRoutes(
         console.error('Delete vote counter error:', error);
       }
 
-      // 删除所有用户的投票记录（遍历所有用户）
-      const userVoteKeys = await kvService.list(`vote:user:`);
-      for (const key of userVoteKeys) {
-        const userVotes = await kvService.get<string[]>(key);
-        if (userVotes && userVotes.includes(workId)) {
-          const updatedVotes = userVotes.filter(id => id !== workId);
-          if (updatedVotes.length === 0) {
-            await kvService.delete(key);
-          } else {
-            await kvService.set(key, updatedVotes);
-          }
+      // 删除该作品的所有投票记录（按作品维度清理：vote:workId:userId 与 vote:user:userId:workId）
+      const workVoteKeys = await kvService.list(`vote:${workId}:`);
+      for (const key of workVoteKeys) {
+        // key 格式为 vote:workId:userId，解析出 userId
+        const parts = key.split(':');
+        const votedUserId = parts[2];
+        if (votedUserId) {
+          await kvService.delete(key);
+          await kvService.delete(`vote:user:${votedUserId}:${workId}`);
         }
       }
 

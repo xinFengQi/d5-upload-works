@@ -369,10 +369,21 @@ export async function handleScreenPage(
             return;
           }
 
-          renderSlides();
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('swiperWrapper').style.display = 'block';
-          document.getElementById('slideCounter').style.display = 'block';
+          const wrapper = document.getElementById('swiperWrapper');
+          const existingSlides = wrapper.querySelectorAll('.swiper-slide');
+          if (existingSlides.length === 0) {
+            renderSlides();
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('swiperWrapper').style.display = 'block';
+            document.getElementById('slideCounter').style.display = 'block';
+          } else {
+            ensureSlidesCount();
+            bindVideoEndEvents();
+            document.getElementById('totalCount').textContent = works.length;
+            if (currentIndex >= works.length) {
+              currentIndex = Math.max(0, works.length - 1);
+            }
+          }
         } else {
           showError();
         }
@@ -380,6 +391,58 @@ export async function handleScreenPage(
         console.error('加载失败:', error);
         showError();
       }
+    }
+
+    function createSlideHtml(index, work) {
+      return \`
+        <div class="swiper-slide" data-index="\${index}">
+          <div class="work-card">
+            <div class="work-video-container">
+              <video class="work-video" src="\${work.fileUrl}" muted playsinline></video>
+            </div>
+            <div class="work-info">
+              <h2 class="work-title" title="\${work.title || '未命名作品'}">\${truncateText(work.title || '未命名作品', 30)}</h2>
+              <p class="work-creator" title="\${work.creatorName || '未知'}">创作者：\${truncateText(work.creatorName || '未知', 15)}</p>
+              <div class="work-votes">
+                <span>\${work.voteCount || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      \`;
+    }
+
+    function ensureSlidesCount() {
+      const wrapper = document.getElementById('swiperWrapper');
+      let slides = wrapper.querySelectorAll('.swiper-slide');
+      while (slides.length < works.length) {
+        const index = slides.length;
+        const work = works[index];
+        wrapper.insertAdjacentHTML('beforeend', createSlideHtml(index, work));
+        slides = wrapper.querySelectorAll('.swiper-slide');
+      }
+    }
+
+    function updateSlideContent(slide, work, index) {
+      if (!work) return;
+      slide.dataset.index = index;
+      const video = slide.querySelector('.work-video');
+      if (video) {
+        video.src = work.fileUrl;
+        video.load();
+      }
+      const titleEl = slide.querySelector('.work-title');
+      if (titleEl) {
+        titleEl.textContent = truncateText(work.title || '未命名作品', 30);
+        titleEl.title = work.title || '未命名作品';
+      }
+      const creatorEl = slide.querySelector('.work-creator');
+      if (creatorEl) {
+        creatorEl.textContent = '创作者：' + truncateText(work.creatorName || '未知', 15);
+        creatorEl.title = work.creatorName || '未知';
+      }
+      const votesEl = slide.querySelector('.work-votes span');
+      if (votesEl) votesEl.textContent = work.voteCount || 0;
     }
 
     function renderSlides() {
@@ -411,7 +474,11 @@ export async function handleScreenPage(
     }
 
     function showSlide(index) {
+      if (works.length === 0) return;
+      index = Math.max(0, Math.min(index, works.length - 1));
+      ensureSlidesCount();
       const slides = document.querySelectorAll('.swiper-slide');
+      updateSlideContent(slides[index], works[index], index);
       const prevIndex = currentIndex;
       currentIndex = index;
 
@@ -599,8 +666,8 @@ export async function handleScreenPage(
       // 先加载主题配置
       await loadAndApplyTheme();
       loadAllWorks();
-      // 每60秒刷新一次数据
-      setInterval(loadAllWorks, 60000);
+      // 每10分钟刷新一次数据
+      setInterval(loadAllWorks, 10 * 60 * 1000);
     });
 
     // 页面可见性变化时控制视频播放

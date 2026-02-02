@@ -205,16 +205,16 @@ export async function handleMultiScreenPage(
         const data = await response.json();
 
         if (data.success && data.data.items) {
-          works = data.data.items;
-          
-          if (works.length === 0) {
+          const items = data.data.items;
+
+          if (items.length === 0) {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('emptyState').style.display = 'block';
             return;
           }
 
           // 为每个作品获取投票数
-          await Promise.all(works.map(async (work) => {
+          await Promise.all(items.map(async (work) => {
             try {
               const voteResponse = await fetch(\`/api/vote/stats?workId=\${work.id}\`);
               const voteData = await voteResponse.json();
@@ -229,9 +229,16 @@ export async function handleMultiScreenPage(
             }
           }));
 
-          await loadConfig();
-          renderGrid();
-          initializePlayQueue();
+          works = items;
+
+          const container = document.getElementById('gridContainer');
+          const hasGrid = container && container.querySelectorAll('.video-cell').length > 0;
+          if (!hasGrid) {
+            await loadConfig();
+            renderGrid();
+            initializePlayQueue();
+          }
+          // 已有网格时为定时刷新：仅更新 works，不重绘、不打断当前播放；各格队列用完后会从新 works 补充
         } else {
           document.getElementById('loading').style.display = 'none';
           document.getElementById('emptyState').style.display = 'block';
@@ -421,6 +428,8 @@ export async function handleMultiScreenPage(
       // 先加载主题配置
       await loadAndApplyTheme();
       loadWorks();
+      // 每10分钟刷新一次数据
+      setInterval(loadWorks, 10 * 60 * 1000);
     });
   </script>
 </body>
