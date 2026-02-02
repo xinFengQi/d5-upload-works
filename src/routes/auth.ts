@@ -64,13 +64,14 @@ export async function handleAuthRoutes(
   // 钉钉登录回调
   if (path === '/auth/callback' && method === 'GET') {
     try {
-      const code = url.searchParams.get('code');
+      // 钉钉新 OAuth2 接口返回的是 authCode，不是 code
+      const authCode = url.searchParams.get('authCode') || url.searchParams.get('code');
       const state = url.searchParams.get('state');
       // URLSearchParams.get() 会自动解码，直接使用即可
       const mockUserName = url.searchParams.get('mock_user');
 
-      if (!code) {
-        return createErrorResponse('Missing code parameter', 'INVALID_REQUEST', 400);
+      if (!authCode) {
+        return createErrorResponse('Missing authCode parameter', 'INVALID_REQUEST', 400);
       }
 
       // 验证 state（防止 CSRF 攻击）
@@ -85,22 +86,34 @@ export async function handleAuthRoutes(
 
       let userInfo: DingTalkUser;
 
-      // 如果是模拟模式，生成模拟用户信息
-      if (isMock || code.startsWith('mock_code_')) {
-        // 确保用户名正确解码（如果存在）
+      // 检查是否为模拟登录（通过 code 前缀判断，最可靠）
+      if (authCode.startsWith('mock_code_')) {
+        // 模拟登录：生成模拟用户信息
         const decodedUserName = mockUserName ? decodeURIComponent(mockUserName) : undefined;
         userInfo = generateMockUser(decodedUserName);
-        // 设置为普通用户
         userInfo.role = 'user';
         console.log('Mock login - raw userName:', mockUserName);
         console.log('Mock login - decoded userName:', decodedUserName);
         console.log('Mock login - userInfo:', userInfo);
       } else {
-        // 真实模式：通过 code 获取用户信息
+        // 真实钉钉登录：通过 authCode 获取用户信息
+        console.log('Real DingTalk login - authCode:', authCode.substring(0, 20) + '...');
+        console.log('isDevelopment:', isMock);
+        
         const dingtalkService = new DingTalkService(env);
-        userInfo = await dingtalkService.getUserInfoByCode(code);
-        // 设置为普通用户
-        userInfo.role = 'user';
+        try {
+          userInfo = await dingtalkService.getUserInfoByAuthCode(authCode);
+          userInfo.role = 'user';
+          console.log('DingTalk user info:', {
+            userid: userInfo.userid,
+            name: userInfo.name,
+            hasAvatar: !!userInfo.avatar,
+          });
+        } catch (error) {
+          console.error('Failed to get DingTalk user info:', error);
+          // 钉钉登录失败，不允许 fallback 到模拟用户
+          throw new Error(`钉钉登录失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
 
       // 生成 session token
@@ -128,7 +141,19 @@ export async function handleAuthRoutes(
       return Response.redirect(redirectUrl.toString(), 302);
     } catch (error) {
       console.error('DingTalk callback error:', error);
-      return createErrorResponse('Failed to complete login', 'CALLBACK_ERROR', 500);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('Error details:', {
+        message: errorMessage,
+        stack: errorStack,
+        url: url.toString(),
+        searchParams: Object.fromEntries(url.searchParams),
+      });
+      return createErrorResponse(
+        `Failed to complete login: ${errorMessage}`,
+        'CALLBACK_ERROR',
+        500
+      );
     }
   }
 

@@ -33,7 +33,10 @@ export class DingTalkService {
     const params = new URLSearchParams({
       client_id: this.appKey, // 使用 client_id 而不是 appid
       response_type: 'code',
-      scope: 'openid', // 使用 openid，如果需要组织ID可以使用 'openid corpid'
+      // scope: 授权范围，多个权限用空格分隔（URLSearchParams 会自动编码空格为 %20）
+      // - openid: 基础权限，用于获取用户 AccessToken
+      // - Contact.User.Read: 读取用户通讯录个人信息权限（调用 /v1.0/contact/users/me 接口必需）
+      scope: 'openid Contact.User.Read',
       redirect_uri: this.redirectUri,
       prompt: 'consent', // 进入授权确认页
       ...(state && { state }), // state 是可选的
@@ -67,7 +70,160 @@ export class DingTalkService {
   }
 
   /**
-   * 通过 code 获取用户信息（企业内部应用）
+   * 通过 authCode 获取用户信息（新 OAuth2 接口）
+   * 参考官方文档：https://open.dingtalk.com/document/development/obtain-identity-credentials
+   */
+  async getUserInfoByAuthCode(authCode: string): Promise<DingTalkUser> {
+    // 1. 使用 authCode 获取用户 access_token
+    // 注意：新 OAuth2 接口使用 api.dingtalk.com，不是 oapi.dingtalk.com
+    // 参考：https://open-dingtalk.github.io/developerpedia/docs/develop/permission/token/browser/get_user_app_token_browser
+    const tokenUrl = 'https://api.dingtalk.com/v1.0/oauth2/userAccessToken';
+    
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 注意：新接口可能不需要 x-acs-dingtalk-access-token 头，或者需要应用级别的 token
+        // 先尝试不传，如果失败再尝试传应用 token
+      },
+      body: JSON.stringify({
+        clientId: this.appKey,
+        clientSecret: this.appSecret,
+        code: authCode,
+        grantType: 'authorization_code',
+      }),
+    });
+
+    // 先读取响应文本，便于调试
+    const responseText = await tokenResponse.text();
+    console.log('Token response raw:', {
+      status: tokenResponse.status,
+      statusText: tokenResponse.statusText,
+      headers: Object.fromEntries(tokenResponse.headers.entries()),
+      body: responseText,
+    });
+
+    if (!tokenResponse.ok) {
+      throw new Error(`Failed to get user access token: HTTP ${tokenResponse.status}, ${responseText}`);
+    }
+
+    // 尝试解析 JSON
+    let tokenData: {
+      accessToken?: string;
+      refreshToken?: string;
+      expireIn?: number;
+      errmsg?: string;
+      errcode?: number;
+    };
+    
+    try {
+      tokenData = JSON.parse(responseText);
+    } catch (parseError) {
+      throw new Error(`Failed to parse token response as JSON: ${responseText}`);
+    }
+
+    console.log('Token response parsed:', tokenData);
+
+    // 检查错误码（钉钉接口可能返回 errcode 或直接返回错误）
+    if (tokenData.errcode !== undefined && tokenData.errcode !== 0) {
+      throw new Error(
+        `Failed to get user access token: errcode=${tokenData.errcode}, errmsg=${tokenData.errmsg || 'Unknown error'}`
+      );
+    }
+
+    if (!tokenData.accessToken) {
+      throw new Error(
+        `Failed to get user access token: No accessToken in response. Response: ${JSON.stringify(tokenData)}`
+      );
+    }
+
+    const userAccessToken = tokenData.accessToken;
+
+    // 2. 使用用户 access_token 获取用户信息
+    // 注意：新接口使用 api.dingtalk.com，不是 oapi.dingtalk.com
+    const userInfoUrl = 'https://api.dingtalk.com/v1.0/contact/users/me';
+    
+    const userResponse = await fetch(userInfoUrl, {
+      method: 'GET',
+      headers: {
+        'x-acs-dingtalk-access-token': userAccessToken,
+      },
+    });
+
+    // 先读取响应文本，便于调试
+    const userResponseText = await userResponse.text();
+    console.log('User info response raw:', {
+      status: userResponse.status,
+      statusText: userResponse.statusText,
+      headers: Object.fromEntries(userResponse.headers.entries()),
+      body: userResponseText,
+    });
+
+    if (!userResponse.ok) {
+      throw new Error(`Failed to get user info: HTTP ${userResponse.status}, ${userResponseText}`);
+    }
+
+    // 尝试解析 JSON
+    let userData: {
+      unionId?: string;
+      nick?: string;
+      avatarUrl?: string;
+      mobile?: string;
+      email?: string;
+      userId?: string;
+      errmsg?: string;
+      errcode?: number;
+      code?: string;
+      message?: string;
+    };
+    
+    try {
+      userData = JSON.parse(userResponseText);
+    } catch (parseError) {
+      throw new Error(`Failed to parse user info response as JSON: ${userResponseText}`);
+    }
+
+    console.log('User info response parsed:', userData);
+
+    // 检查错误码（钉钉新接口成功时不返回 errcode，失败时可能返回 code 或 errcode）
+    // 成功响应格式：{ "nick": "...", "avatarUrl": "...", "unionId": "...", ... }
+    // 失败响应格式：{ "code": "...", "message": "..." } 或 { "errcode": 0, "errmsg": "..." }
+    
+    // 如果响应中有 code 字段且不是成功状态，说明是错误响应
+    if (userData.code && userData.code !== '0' && userData.code !== 'OK') {
+      throw new Error(
+        `Failed to get user info: code=${userData.code}, message=${userData.message || 'Unknown error'}`
+      );
+    }
+
+    // 如果响应中有 errcode 字段且不为 0，说明是错误响应
+    if (userData.errcode !== undefined && userData.errcode !== 0) {
+      throw new Error(
+        `Failed to get user info: errcode=${userData.errcode}, errmsg=${userData.errmsg || 'Unknown error'}`
+      );
+    }
+
+    // 检查是否有必要的用户信息字段（成功响应至少应该有 unionId 或 nick）
+    if (!userData.unionId && !userData.nick) {
+      throw new Error(
+        `Failed to get user info: Invalid response format. Response: ${JSON.stringify(userData)}`
+      );
+    }
+
+    // 3. 返回用户信息
+    // 注意：新接口返回 unionId，不是 userid
+    return {
+      userid: userData.unionId || '', // 新接口使用 unionId
+      name: userData.nick || '未知用户',
+      avatar: userData.avatarUrl,
+      mobile: userData.mobile,
+      email: userData.email,
+    };
+  }
+
+  /**
+   * 通过 code 获取用户信息（旧接口，保留兼容性）
+   * @deprecated 使用 getUserInfoByAuthCode 代替
    */
   async getUserInfoByCode(code: string): Promise<DingTalkUser> {
     // 先获取 access_token
