@@ -83,8 +83,6 @@ export class DingTalkService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // 注意：新接口可能不需要 x-acs-dingtalk-access-token 头，或者需要应用级别的 token
-        // 先尝试不传，如果失败再尝试传应用 token
       },
       body: JSON.stringify({
         clientId: this.appKey,
@@ -94,35 +92,18 @@ export class DingTalkService {
       }),
     });
 
-    // 先读取响应文本，便于调试
-    const responseText = await tokenResponse.text();
-    console.log('Token response raw:', {
-      status: tokenResponse.status,
-      statusText: tokenResponse.statusText,
-      headers: Object.fromEntries(tokenResponse.headers.entries()),
-      body: responseText,
-    });
-
     if (!tokenResponse.ok) {
-      throw new Error(`Failed to get user access token: HTTP ${tokenResponse.status}, ${responseText}`);
+      const errorText = await tokenResponse.text();
+      throw new Error(`Failed to get user access token: HTTP ${tokenResponse.status}, ${errorText}`);
     }
 
-    // 尝试解析 JSON
-    let tokenData: {
+    const tokenData = await tokenResponse.json() as {
       accessToken?: string;
       refreshToken?: string;
       expireIn?: number;
       errmsg?: string;
       errcode?: number;
     };
-    
-    try {
-      tokenData = JSON.parse(responseText);
-    } catch (parseError) {
-      throw new Error(`Failed to parse token response as JSON: ${responseText}`);
-    }
-
-    console.log('Token response parsed:', tokenData);
 
     // 检查错误码（钉钉接口可能返回 errcode 或直接返回错误）
     if (tokenData.errcode !== undefined && tokenData.errcode !== 0) {
@@ -150,64 +131,39 @@ export class DingTalkService {
       },
     });
 
-    // 先读取响应文本，便于调试
-    const userResponseText = await userResponse.text();
-    console.log('User info response raw:', {
-      status: userResponse.status,
-      statusText: userResponse.statusText,
-      headers: Object.fromEntries(userResponse.headers.entries()),
-      body: userResponseText,
-    });
-
     if (!userResponse.ok) {
-      throw new Error(`Failed to get user info: HTTP ${userResponse.status}, ${userResponseText}`);
+      const errorText = await userResponse.text();
+      throw new Error(`Failed to get user info: HTTP ${userResponse.status}, ${errorText}`);
     }
 
-    // 尝试解析 JSON
-    let userData: {
+    const userData = await userResponse.json() as {
       unionId?: string;
       nick?: string;
       avatarUrl?: string;
       mobile?: string;
       email?: string;
-      userId?: string;
       errmsg?: string;
       errcode?: number;
       code?: string;
       message?: string;
     };
-    
-    try {
-      userData = JSON.parse(userResponseText);
-    } catch (parseError) {
-      throw new Error(`Failed to parse user info response as JSON: ${userResponseText}`);
-    }
 
-    console.log('User info response parsed:', userData);
-
-    // 检查错误码（钉钉新接口成功时不返回 errcode，失败时可能返回 code 或 errcode）
-    // 成功响应格式：{ "nick": "...", "avatarUrl": "...", "unionId": "...", ... }
-    // 失败响应格式：{ "code": "...", "message": "..." } 或 { "errcode": 0, "errmsg": "..." }
-    
-    // 如果响应中有 code 字段且不是成功状态，说明是错误响应
+    // 检查错误响应（钉钉新接口成功时不返回 errcode，失败时可能返回 code 或 errcode）
     if (userData.code && userData.code !== '0' && userData.code !== 'OK') {
       throw new Error(
         `Failed to get user info: code=${userData.code}, message=${userData.message || 'Unknown error'}`
       );
     }
 
-    // 如果响应中有 errcode 字段且不为 0，说明是错误响应
     if (userData.errcode !== undefined && userData.errcode !== 0) {
       throw new Error(
         `Failed to get user info: errcode=${userData.errcode}, errmsg=${userData.errmsg || 'Unknown error'}`
       );
     }
 
-    // 检查是否有必要的用户信息字段（成功响应至少应该有 unionId 或 nick）
+    // 验证响应格式（成功响应至少应该有 unionId 或 nick）
     if (!userData.unionId && !userData.nick) {
-      throw new Error(
-        `Failed to get user info: Invalid response format. Response: ${JSON.stringify(userData)}`
-      );
+      throw new Error('Failed to get user info: Invalid response format');
     }
 
     // 3. 返回用户信息
