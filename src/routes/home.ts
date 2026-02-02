@@ -106,7 +106,7 @@ export async function handleHomeRoute(
       }
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 992px) {
       .navbar {
         padding: 0.75rem 1rem;
       }
@@ -115,10 +115,10 @@ export async function handleHomeRoute(
         gap: 1rem;
       }
       .nav-actions {
-        display: none;
+        display: none !important;
       }
       .menu-toggle {
-        display: block;
+        display: flex !important;
       }
     }
 
@@ -163,15 +163,22 @@ export async function handleHomeRoute(
       padding: 0.5rem;
       font-size: 1.5rem;
       color: var(--text-primary);
-      transition: transform 0.3s ease;
+      transition: all 0.3s ease;
+      width: 2.5rem;
+      height: 2.5rem;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+      flex-shrink: 0;
     }
 
     .menu-toggle:hover {
-      transform: scale(1.1);
+      background: var(--bg-secondary);
+      transform: scale(1.05);
     }
 
     .menu-toggle.active {
-      transform: rotate(90deg);
+      background: var(--bg-secondary);
     }
 
     /* 侧边菜单遮罩 */
@@ -198,15 +205,17 @@ export async function handleHomeRoute(
       position: fixed;
       top: 0;
       right: -100%;
-      width: 280px;
+      width: 300px;
       max-width: 85vw;
       height: 100vh;
       background: var(--bg-primary);
       box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
       z-index: 2000;
-      transition: right 0.3s ease;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       overflow-y: auto;
       padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
     }
 
     .side-menu.active {
@@ -217,9 +226,10 @@ export async function handleHomeRoute(
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
       padding-bottom: 1rem;
       border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
     }
 
     .side-menu-title {
@@ -256,6 +266,8 @@ export async function handleHomeRoute(
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      flex: 1;
+      overflow-y: auto;
     }
 
     .side-menu-actions .btn {
