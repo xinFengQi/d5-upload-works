@@ -888,14 +888,14 @@ function getAdminPageHTML(): string {
     }
 
     .work-card-content {
-      padding: 0.75rem;
+      padding: 1rem;
     }
 
     .work-card-title {
       font-weight: 600;
       color: var(--text-primary);
-      font-size: 0.9375rem;
-      margin-bottom: 0.5rem;
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
       overflow: hidden;
       text-overflow: ellipsis;
       display: -webkit-box;
@@ -909,28 +909,29 @@ function getAdminPageHTML(): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.75rem;
-      font-size: 0.8125rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
       color: var(--text-secondary);
     }
 
     .work-card-votes {
       font-weight: 700;
       color: var(--primary-color);
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
     }
 
     .work-card-actions {
       display: flex;
-      gap: 0.5rem;
-      padding-top: 0.75rem;
+      gap: 0.75rem;
+      padding-top: 1rem;
       border-top: 1px solid var(--border-color);
+      margin-top: 0.75rem;
     }
 
     .work-card-actions .btn {
       flex: 1;
-      padding: 0.5rem;
-      font-size: 0.8125rem;
+      padding: 0.625rem;
+      font-size: 0.875rem;
       justify-content: center;
     }
 
@@ -941,8 +942,8 @@ function getAdminPageHTML(): string {
       }
 
       .works-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        display: flex;
+        flex-direction: column;
       }
 
       .container {
