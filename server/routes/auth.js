@@ -206,6 +206,19 @@ router.get('/me', (req, res) => {
     if (session) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
     return sendJson(res, createErrorResponse('Invalid or expired token', 'TOKEN_EXPIRED', 401));
   }
+  let isJudge = false;
+  const userEmail = (session.email || '').trim().toLowerCase();
+  if (userEmail) {
+    const configRow = db.prepare('SELECT judges_json FROM screen_config WHERE id = 1').get();
+    if (configRow && configRow.judges_json) {
+      try {
+        const judges = JSON.parse(configRow.judges_json);
+        if (Array.isArray(judges)) {
+          isJudge = judges.some((e) => String(e).trim().toLowerCase() === userEmail);
+        }
+      } catch (_) {}
+    }
+  }
   const userInfo = {
     userid: session.userid,
     name: session.name,
@@ -213,6 +226,7 @@ router.get('/me', (req, res) => {
     mobile: session.mobile,
     email: session.email,
     role: session.role || 'user',
+    isJudge,
   };
   sendJson(res, createSuccessResponse(userInfo));
 });

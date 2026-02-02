@@ -11,6 +11,7 @@ const uploadRoutes = require('./routes/upload');
 const worksRoutes = require('./routes/works');
 const voteRoutes = require('./routes/vote');
 const screenConfigRoutes = require('./routes/screen-config');
+const judgeRoutes = require('./routes/judge');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/works', worksRoutes);
 app.use('/api/vote', voteRoutes);
 app.use('/api/screen-config', screenConfigRoutes);
+app.use('/api/judge', judgeRoutes);
 
 const pageMap = {
   '/': 'index.html',

@@ -15,6 +15,7 @@
           <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
           <router-link to="/upload" class="btn btn-primary">上传作品</router-link>
           <router-link to="/vote-result" class="btn btn-outline">投票结果</router-link>
+          <router-link v-if="isJudge" to="/score" class="btn btn-outline">去评分</router-link>
           <router-link to="/screen" class="btn btn-outline">大屏展示</router-link>
           <router-link to="/multi-screen" class="btn btn-outline">多屏播放</router-link>
           <router-link v-if="isAdmin" to="/admin" class="btn btn-outline">管理</router-link>
@@ -39,6 +40,7 @@
         <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
         <router-link to="/upload" class="btn btn-primary" @click="closeSideMenu">上传作品</router-link>
         <router-link to="/vote-result" class="btn btn-outline" @click="closeSideMenu">投票结果</router-link>
+        <router-link v-if="isJudge" to="/score" class="btn btn-outline" @click="closeSideMenu">去评分</router-link>
         <router-link to="/screen" class="btn btn-outline" @click="closeSideMenu">大屏展示</router-link>
         <router-link to="/multi-screen" class="btn btn-outline" @click="closeSideMenu">多屏播放</router-link>
         <router-link v-if="isAdmin" to="/admin" class="btn btn-outline" @click="closeSideMenu">管理</router-link>
@@ -110,10 +112,10 @@ import { getVoteStats, getUserVoteCount, vote as apiVote } from '../api/vote';
 import { getScreenConfig } from '../api/screenConfig';
 import { exchangeCode } from '../api/auth';
 
-const MAX_VOTES = 10;
+const MAX_VOTES = 1;
 const route = useRoute();
 const router = useRouter();
-const { user, isLoggedIn, isAdmin, setToken, checkAuth, logout } = useAuth();
+const { user, isLoggedIn, isAdmin, isJudge, setToken, checkAuth, logout } = useAuth();
 
 const loading = ref(true);
 const works = ref([]);

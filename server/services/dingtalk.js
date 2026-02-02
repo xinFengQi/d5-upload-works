@@ -55,7 +55,6 @@ class DingTalkService {
     }
     const userData = await userResponse.json();
     // 打印钉钉返回的全部用户信息（调试用）
-    console.log('[DingTalk] 钉钉 /v1.0/contact/users/me 完整返回:', JSON.stringify(userData, null, 2));
     if (userData.code && userData.code !== '0' && userData.code !== 'OK') {
       throw new Error(`Failed to get user info: code=${userData.code}, ${userData.message || ''}`);
     }

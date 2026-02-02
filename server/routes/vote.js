@@ -7,7 +7,7 @@ const { getDb } = require('../db');
 const { createSuccessResponse, createErrorResponse, sendJson } = require('../utils/response');
 const { getSessionUser } = require('../middleware/auth');
 
-const MAX_VOTES_PER_USER = 10;
+const DEFAULT_MAX_VOTES_PER_USER = 1;
 
 // 投票
 router.post('/', (req, res) => {
@@ -34,9 +34,11 @@ router.post('/', (req, res) => {
     return sendJson(res, createErrorResponse('Already voted', 'ALREADY_VOTED', 400));
   }
 
+  const configRow = db.prepare('SELECT max_votes_per_user FROM screen_config WHERE id = 1').get();
+  const maxVotes = (configRow?.max_votes_per_user != null && configRow.max_votes_per_user !== '') ? Number(configRow.max_votes_per_user) : DEFAULT_MAX_VOTES_PER_USER;
   const userVoteCount = db.prepare('SELECT COUNT(*) AS c FROM votes WHERE user_id = ?').get(user.userid).c;
-  if (userVoteCount >= MAX_VOTES_PER_USER) {
-    return sendJson(res, createErrorResponse('Maximum votes reached (10)', 'MAX_VOTES_REACHED', 400));
+  if (userVoteCount >= maxVotes) {
+    return sendJson(res, createErrorResponse(`已达到每人最多投票数（${maxVotes}）`, 'MAX_VOTES_REACHED', 400));
   }
 
   const now = Date.now();

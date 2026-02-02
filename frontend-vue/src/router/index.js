@@ -8,6 +8,7 @@ const routes = [
   { path: '/screen', name: 'Screen', component: () => import('../views/Screen.vue'), meta: { title: '大屏展示' } },
   { path: '/multi-screen', name: 'MultiScreen', component: () => import('../views/MultiScreen.vue'), meta: { title: '多屏播放' } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { title: '作品管理', admin: true } },
+  { path: '/score', name: 'Score', component: () => import('../views/Score.vue'), meta: { title: '评分列表', auth: true } },
 ];
 
 const router = createRouter({

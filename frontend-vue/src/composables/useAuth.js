@@ -16,6 +16,7 @@ export function useAuth() {
   });
   const isLoggedIn = computed(() => !!token.value);
   const isAdmin = computed(() => user.value && user.value.role === 'admin');
+  const isJudge = computed(() => user.value && user.value.isJudge === true);
 
   function setToken(t) {
     if (t) {
@@ -70,6 +71,7 @@ export function useAuth() {
     token,
     isLoggedIn,
     isAdmin,
+    isJudge,
     loading,
     setToken,
     checkAuth,
