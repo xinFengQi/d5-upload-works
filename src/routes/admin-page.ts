@@ -858,6 +858,135 @@ function getAdminPageHTML(): string {
       padding: 2rem;
       color: var(--text-secondary);
     }
+
+    /* 手机端卡片布局 */
+    .works-cards {
+      display: none;
+      padding: 1rem;
+      gap: 1rem;
+    }
+
+    .work-card {
+      background: var(--bg-secondary);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-color);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .work-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .work-card-preview {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .work-card-content {
+      padding: 0.75rem;
+    }
+
+    .work-card-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.9375rem;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.4;
+      min-height: 2.8em;
+    }
+
+    .work-card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .work-card-votes {
+      font-weight: 700;
+      color: var(--primary-color);
+      font-size: 0.875rem;
+    }
+
+    .work-card-actions {
+      display: flex;
+      gap: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .work-card-actions .btn {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 0.8125rem;
+      justify-content: center;
+    }
+
+    /* 响应式布局 */
+    @media (max-width: 768px) {
+      .works-table-container .table {
+        display: none;
+      }
+
+      .works-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      }
+
+      .container {
+        padding: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .config-card {
+        padding: 1rem;
+      }
+
+      .config-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .config-form-group {
+        width: 100%;
+      }
+
+      .config-select {
+        width: 100%;
+        min-width: unset;
+      }
+
+      .config-actions {
+        width: 100%;
+      }
+
+      .config-actions .btn {
+        flex: 1;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .works-cards {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1138,6 +1267,27 @@ function getAdminPageHTML(): string {
             \`).join('')}
           </tbody>
         </table>
+        <div class="works-cards">
+          \${worksWithVotes.map(work => \`
+            <div class="work-card">
+              <video class="work-card-preview" src="\${work.fileUrl}" muted></video>
+              <div class="work-card-content">
+                <div class="work-card-title" title="\${work.title}">\${work.title || '未命名作品'}</div>
+                <div class="work-card-meta">
+                  <span>\${work.creatorName || '未知'}</span>
+                  <span class="work-card-votes">\${work.voteCount || 0} 票</span>
+                </div>
+                <div class="work-card-meta" style="margin-bottom: 0;">
+                  <span style="font-size: 0.75rem;">\${formatDate(work.createdAt)}</span>
+                </div>
+                <div class="work-card-actions">
+                  <button class="btn btn-outline" onclick="showVotersModal('\${work.id}', '\${work.title}')" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color);">查看投票</button>
+                  <button class="btn btn-danger" onclick="showDeleteModal('\${work.id}', '\${work.title}')">删除</button>
+                </div>
+              </div>
+            </div>
+          \`).join('')}
+        </div>
       \`;
 
       tableContainer.innerHTML = tableHTML;
