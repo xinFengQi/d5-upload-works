@@ -1,0 +1,28 @@
+import { createRouter, createWebHistory } from 'vue-router';
+
+const routes = [
+  { path: '/', name: 'Home', component: () => import('../views/Home.vue'), meta: { title: '2026年会作品投票' } },
+  { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { title: '登录' } },
+  { path: '/upload', name: 'Upload', component: () => import('../views/Upload.vue'), meta: { title: '上传作品', auth: true } },
+  { path: '/vote-result', name: 'VoteResult', component: () => import('../views/VoteResult.vue'), meta: { title: '投票结果' } },
+  { path: '/screen', name: 'Screen', component: () => import('../views/Screen.vue'), meta: { title: '大屏展示' } },
+  { path: '/multi-screen', name: 'MultiScreen', component: () => import('../views/MultiScreen.vue'), meta: { title: '多屏播放' } },
+  { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { title: '作品管理', admin: true } },
+];
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+});
+
+router.beforeEach((to, from, next) => {
+  document.title = to.meta.title ? `${to.meta.title} - D5 Works` : 'D5 Works';
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+  if (to.meta.auth && !token) {
+    next({ name: 'Login', query: { redirect: to.fullPath } });
+    return;
+  }
+  next();
+});
+
+export default router;

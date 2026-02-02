@@ -1,57 +1,31 @@
 # Cursor 项目规则
 
-本目录包含项目的 Cursor AI 规则文件，用于指导 AI 助手理解和生成符合项目规范的代码。
+本目录包含项目的 Cursor AI 规则，用于指导 AI 理解和生成符合当前项目规范的代码。
+
+## 项目说明
+
+本项目为 **Node 服务端 + 静态前端** 的作品上传系统：
+
+- **服务端**：`server/`（Express + SQLite + OSS + 钉钉）
+- **前端**：`frontend/public/`（静态 HTML/JS）
+- 部署时数据目录 `server/data/` 需持久化，详见 `server/DEPLOY.md`。
 
 ## 规则文件说明
 
 ### 始终应用 (Always Apply)
-这些规则会在每个聊天会话中自动应用：
+- **project-overview.mdc**：项目概述、目录结构、核心模块与数据持久化说明
+- **code-standards.mdc**：代码规范、错误处理与 API 响应格式
+- **security.mdc**：密钥管理、API 安全、数据验证、会话与日志安全
 
-- **project-overview.mdc**: 项目概述、技术栈和整体架构说明
-- **code-standards.mdc**: TypeScript 代码规范、错误处理和响应格式标准
-- **security.mdc**: 安全规范（密钥管理、API 安全、数据验证）
+### 按上下文/文件应用
+- **environment.mdc**：环境变量规范（`server/.env`、`server/**/*.js`）
+- **routes.mdc**：API 路由规范（`server/routes/**/*.js`、`server/app.js`）
+- **services.mdc**：服务层与数据库规范（`server/services/**/*.js`、`server/db/**/*.js`）
+- **types.mdc**：数据结构与约定（`server/**/*.js`）
 
-### 智能应用 (Apply Intelligently)
-这些规则会根据上下文自动应用：
+## 规则类型
 
-- **environment.mdc**: 环境变量配置规范（在编辑 env.ts、.dev.vars、wrangler.toml 时应用）
+1. **Always Apply**：核心架构与规范，每次会话生效
+2. **Apply via globs**：匹配到对应文件时生效（路由、服务、环境、类型等）
 
-### 特定文件应用 (Apply to Specific Files)
-这些规则在匹配特定文件模式时应用：
-
-- **routes.mdc**: 路由处理规范和 API 端点设计（应用于 `routes/**/*.ts` 和 `router.ts`）
-- **services.mdc**: 服务层设计规范和实现标准（应用于 `services/**/*.ts`）
-- **types.mdc**: TypeScript 类型定义规范（应用于 `types/**/*.ts`）
-
-## 规则类型说明
-
-根据 Cursor 官方文档，规则类型包括：
-
-1. **Always Apply**: 始终应用，适用于核心规范和架构说明
-2. **Apply Intelligently**: 智能应用，根据描述判断相关性
-3. **Apply to Specific Files**: 特定文件应用，使用 `globs` 模式匹配
-4. **Apply Manually**: 手动应用，在聊天中使用 `@rule-name` 引用
-
-## 如何添加新规则
-
-1. 在 `.cursor/rules/` 目录下创建新的 `.md` 或 `.mdc` 文件
-2. 使用 frontmatter 配置规则元数据：
-   ```markdown
-   ---
-   description: "规则描述"
-   alwaysApply: false
-   globs:
-     - "**/pattern/**/*.ts"
-   ---
-   ```
-3. 在 Cursor Settings → Rules 中查看和管理规则
-
-## 规则最佳实践
-
-- 保持规则聚焦和可操作
-- 控制在 500 行以内
-- 提供具体示例或参考文件
-- 避免模糊的指导
-- 引用文件而不是复制内容
-
-更多信息请参考 [Cursor 规则文档](https://cursor.com/cn/docs/context/rules)
+更多说明见 [Cursor 规则文档](https://cursor.com/docs/context/rules)。

@@ -1,80 +1,29 @@
 ---
-description: "服务层设计规范和实现标准"
+description: "服务层规范（OSS、钉钉、数据库）"
 globs:
-  - "**/services/**/*.ts"
+  - "server/services/**/*.js"
+  - "server/db/**/*.js"
 ---
 
 # 服务层规范
 
-## 服务类设计
-所有服务应该：
-1. 封装外部依赖（OSS、钉钉、KV）
-2. 提供清晰的 API
-3. 处理错误和异常
-4. 使用类型定义确保类型安全
+## 数据库 (server/db/)
+- `getDb()`：获取 SQLite 单例，首次自动建表（schema.sql）
+- 数据文件：`server/data/app.db`，部署时须持久化该目录
+- 表：users、sessions、auth_states、works、votes、screen_config
 
-## OSS 服务 (oss.ts)
-- 封装阿里云 OSS REST API
-- 使用 HMAC-SHA1 签名算法生成请求签名
-- 提供 `uploadFile(file: File, key: string)` 方法
-- 提供 `deleteFile(key: string)` 方法
-- 提供 `getFileUrl(key: string)` 方法
-- 注意：在 Workers 环境中，使用 fetch API 调用 OSS REST API
-- 文件存储路径格式：`works/{userId}/{workId}.{extension}`
+## OSS 服务 (services/oss.js)
+- 构造函数接收 `config`（含 ALIYUN_OSS_*）
+- `uploadFile(buffer, key, contentType)`：上传，返回文件 URL
+- `deleteFile(key)`：删除对象
+- `getFileUrl(key)`：生成访问 URL
+- 使用 Node `crypto.createHmac('sha1', ...)` 签名，调用 OSS REST API
 
-## 钉钉服务 (dingtalk.ts)
-- 封装钉钉 OAuth 认证流程
-- 提供 `getAuthUrl(state?: string)` 方法
-- 提供 `getAccessToken(code: string)` 方法
-- 提供 `getUserInfo(accessToken: string)` 方法
-- 处理 token 过期和刷新
+## 钉钉服务 (services/dingtalk.js)
+- 构造函数接收 `config`（含 DINGTALK_*）
+- `getAuthUrl(state)`：返回钉钉授权 URL
+- `getUserInfoByAuthCode(authCode)`：用 authCode 换 token 并拉取用户信息，返回 `{ userid, name, avatar?, mobile?, email? }`
 
-## KV 服务 (kv.ts)
-- 封装 Workers KV 操作
-- 提供 `get<T>(key: string)` 方法
-- 提供 `set(key: string, value: any, expirationTtl?: number)` 方法
-- 提供 `delete(key: string)` 方法
-- 提供 `list(prefix?: string)` 方法
-- 注意 KV 的最终一致性特性
-
-## 投票计数服务 (vote-counter.ts)
-- 封装 Durable Objects 调用
-- 提供 `vote(workId: string, userId: string, userName: string)` 方法
-- 提供 `getStats(workId: string)` 方法
-- 提供 `getAllStats(workIds: string[])` 方法
-- 保证原子性和强一致性
-- 每个作品使用独立的 Durable Object 实例（使用 workId 作为 ID）
-
-### Durable Objects 部署
-- 首次部署时，Wrangler 会自动创建 Durable Objects 类，无需手动配置
-- 配置在 `wrangler.toml` 中：
-  ```toml
-  [[durable_objects.bindings]]
-  name = "VOTE_COUNTER"
-  class_name = "VoteCounter"
-  script_name = "d5-upload-works"
-  ```
-- 验证部署：检查 Cloudflare Dashboard > Workers & Pages > Durable Objects，应该能看到 `VoteCounter` 类
-- 工作原理：
-  - 使用 `workId` 作为 Durable Object 的 ID
-  - 每个作品都有自己独立的计数器实例
-  - 所有对该作品的投票操作都在同一个实例中执行（保证原子性）
-- 优势：
-  - 原子性保证：投票计数操作是原子的，不会丢失
-  - 强一致性：读取的数据始终是最新的
-  - 并发安全：多个用户同时投票不会冲突
-  - 数据准确：投票数完全准确，不会出现计数错误
-
-## 服务使用模式
-在路由处理中使用服务：
-```typescript
-const ossService = new OSSService(env);
-const dingtalkService = new DingTalkService(env);
-const kvService = new KVService(env.MY_KV);
-const voteCounterService = new VoteCounterService(env);
-```
-
-## 错误处理
-- 服务方法应该抛出有意义的错误
-- 在路由层捕获并转换为统一的错误响应
-- 记录服务调用错误
+## 使用方式
+- 在路由中：`new OSSService(req.app.locals.config)`、`new DingTalkService(req.app.locals.config)`
+- 数据库：`const { getDb } = require('../db'); getDb().prepare(...).run()/.get()/.all()`

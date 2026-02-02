@@ -1,92 +1,48 @@
 ---
-description: "路由处理规范和 API 端点设计标准"
+description: "API 路由规范（Express）"
 globs:
-  - "**/routes/**/*.ts"
-  - "**/router.ts"
+  - "server/routes/**/*.js"
+  - "server/app.js"
 ---
 
-# 路由处理规范
+# 路由规范
 
-## 路由结构
-所有路由处理函数应该：
-1. 接收 `Request`, `Env`, `ExecutionContext` 参数
-2. 返回 `Promise<Response>`
-3. 使用统一的响应格式（通过 `createSuccessResponse` 和 `createErrorResponse`）
+## 结构
+- 使用 Express Router，在 `server/app.js` 中挂载
+- 统一使用 `server/utils/response.js` 的 `sendJson`、`createSuccessResponse`、`createErrorResponse`、`createPaginatedResponse`
 
-## 路由处理模式
+## 认证
+- 需要登录：使用 `requireUser` 中间件（`server/middleware/auth.js`）
+- 仅管理员：使用 `requireAdmin` 中间件
+- 从 `req.user` 取当前用户（userid、name、role 等）
 
-```typescript
-export async function handleXxxRoutes(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method;
+## API 端点
 
-  // 处理特定路由
-  if (path === '/api/xxx' && method === 'GET') {
-    // 实现逻辑
-  }
+### 认证 /auth
+- `GET /auth/dingtalk`：重定向到钉钉
+- `GET /auth/callback`：钉钉回调，写 session 后重定向
+- `GET /auth/me`：当前用户信息（Bearer）
+- `POST /auth/admin`：管理员登录，body `{ password }`
+- `POST /auth/logout`：退出（Bearer）
 
-  // 404
-  return createErrorResponse('Not Found', 'NOT_FOUND', 404);
-}
-```
+### 上传 /api/upload
+- `POST /api/upload`：multipart，字段 `file`、`title`，需登录
 
-## 认证路由 (auth.ts)
-- `/auth/dingtalk` (GET): 重定向到钉钉登录页面
-- `/auth/callback` (GET): 处理钉钉登录回调
-- `/auth/me` (GET): 获取当前用户信息（需要认证）
-- `/auth/logout` (POST): 退出登录（需要认证）
+### 作品 /api/works
+- `GET /api/works`：分页列表，query `page`、`limit`
+- `GET /api/works/top`：按投票数排序，query `limit`
+- `DELETE /api/works/:workId`：仅管理员
 
-## 上传路由 (upload.ts)
-- `/api/upload` (POST): 上传文件到 OSS（需要认证）
-  - 验证用户身份
-  - 验证文件类型和大小
-  - 调用 OSS 服务上传
-  - 保存作品信息到 KV
+### 投票 /api/vote
+- `POST /api/vote`：body `{ workId }`，需登录
+- `DELETE /api/vote`：query `workId`，需登录
+- `GET /api/vote/user/count`：当前用户已投票数，需登录
+- `GET /api/vote/stats`：query `workId`，返回 voteCount、hasVoted
+- `GET /api/vote/users`：query `workId`，投票用户列表，仅管理员
 
-## 作品管理路由 (works.ts)
-- `/api/works` (GET): 获取作品列表（需要认证，支持分页，包含投票数）
-- `/api/works/:id` (GET): 获取作品详情（需要认证，包含投票数）
-- `/api/works/:id` (DELETE): 删除作品（需要认证，验证所有权，同时删除 OSS 文件）
+### 大屏配置 /api/screen-config
+- `GET /api/screen-config`：返回 gridLayout、theme、updatedAt
+- `POST /api/screen-config`：body `{ gridLayout?, theme? }`，仅管理员
 
-## 投票路由 (vote.ts)
-- `/api/vote` (POST): 投票（需要认证，每个用户只能投一次）
-- `/api/vote/stats` (GET): 获取投票统计（需要认证，查询参数：workId）
-- `/api/vote/all-stats` (GET): 获取所有作品投票数（需要认证，管理员功能）
-
-## 大屏配置路由 (screen-config.ts)
-- `/api/screen-config` (GET): 获取大屏配置（需要认证）
-- `/api/screen-config` (POST): 保存大屏配置（需要认证，管理员功能）
-
-## 前端页面路由
-- `/` (GET): 首页（作品列表、投票、导航）
-- `/upload` (GET): 上传页面
-- `/screen` (GET): 单屏播放页面（循环播放）
-- `/multi-screen` (GET): 多屏播放页面（可配置布局）
-- `/vote-result` (GET): 投票结果页面（排行榜）
-- `/admin` (GET): 管理员页面（作品管理、投票统计、大屏配置）
-- `/login` (GET): 登录页面
-
-## 路由注册
-在 `src/router.ts` 中注册所有路由，使用路径前缀匹配：
-- `/auth/*` → `handleAuthRoutes`
-- `/api/upload` → `handleUploadRoutes`
-- `/api/works*` → `handleWorksRoutes`
-- `/api/vote*` → `handleVoteRoutes`
-- `/api/screen-config*` → `handleScreenConfigRoutes`
-- `/` → `handleHomeRoute`
-- `/upload` → `handleUploadPage`
-- `/screen` → `handleScreenPage`
-- `/multi-screen` → `handleMultiScreenPage`
-- `/vote-result` → `handleVoteResultPage`
-- `/admin` → `handleAdminPage`
-- `/login` → `handleLoginPage`
-
-## 错误处理
-- 使用 `createErrorResponse` 创建错误响应
-- 记录错误日志
-- 不暴露敏感信息
+## 前端页面
+静态文件在 `frontend/public/`，路径映射在 `app.js` 中：`/` → index.html，`/login` → login.html，`/upload` → upload.html，`/admin` → admin.html，`/screen` → screen.html，`/multi-screen` → multi-screen.html，`/vote-result` → vote-result.html。

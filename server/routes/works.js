@@ -1,0 +1,84 @@
+/**
+ * 作品管理路由
+ */
+const express = require('express');
+const router = express.Router();
+const { getDb } = require('../db');
+const { OSSService } = require('../services/oss');
+const { createSuccessResponse, createErrorResponse, createPaginatedResponse, sendJson } = require('../utils/response');
+const { requireUser, requireAdmin } = require('../middleware/auth');
+
+// 作品列表（分页）
+router.get('/', (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const db = getDb();
+    const total = db.prepare('SELECT COUNT(*) AS c FROM works').get().c;
+    const rows = db.prepare(`
+      SELECT w.id, w.userid AS userId, w.title, w.description, w.file_url AS fileUrl, w.file_name AS fileName, w.file_size AS fileSize, w.file_type AS fileType, w.creator_name AS creatorName, w.created_at AS createdAt, w.updated_at AS updatedAt,
+             COALESCE(v.cnt, 0) AS voteCount
+      FROM works w
+      LEFT JOIN (SELECT work_id, COUNT(*) AS cnt FROM votes GROUP BY work_id) v ON w.id = v.work_id
+      ORDER BY w.created_at DESC LIMIT ? OFFSET ?
+    `).all(limit, (page - 1) * limit);
+    const items = rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
+    sendJson(res, createPaginatedResponse(items, total, page, limit));
+  } catch (err) {
+    console.error('Get works error:', err);
+    sendJson(res, createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500));
+  }
+});
+
+// Top 作品（按投票数）
+router.get('/top', (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT w.id, w.userid AS userId, w.title, w.file_url AS fileUrl, w.file_name AS fileName, w.file_size AS fileSize, w.file_type AS fileType, w.creator_name AS creatorName, w.created_at AS createdAt, w.updated_at AS updatedAt,
+             COALESCE(v.cnt, 0) AS voteCount
+      FROM works w
+      LEFT JOIN (SELECT work_id, COUNT(*) AS cnt FROM votes GROUP BY work_id) v ON w.id = v.work_id
+      ORDER BY voteCount DESC, w.created_at DESC
+      LIMIT ?
+    `).all(limit);
+    sendJson(res, createSuccessResponse({ items: rows, total: rows.length }));
+  } catch (err) {
+    console.error('Get top works error:', err);
+    sendJson(res, createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500));
+  }
+});
+
+// 删除作品（仅管理员）
+router.delete('/:workId', requireAdmin, async (req, res) => {
+  try {
+    const workId = req.params.workId;
+    const db = getDb();
+    const work = db.prepare('SELECT * FROM works WHERE id = ?').get(workId);
+    if (!work) {
+      return sendJson(res, createErrorResponse('Work not found', 'NOT_FOUND', 404));
+    }
+
+    const oss = new OSSService(req.app.locals.config);
+    try {
+      await oss.deleteFile(work.file_name);
+    } catch (err) {
+      console.error('OSS delete error (continuing):', err);
+    }
+
+    db.prepare('DELETE FROM votes WHERE work_id = ?').run(workId);
+    db.prepare('DELETE FROM works WHERE id = ?').run(workId);
+
+    sendJson(res, createSuccessResponse({ success: true, message: '作品删除成功' }));
+  } catch (err) {
+    console.error('Delete work error:', err);
+    sendJson(res, createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500));
+  }
+});
+
+module.exports = router;
