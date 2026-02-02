@@ -6,18 +6,7 @@ import type { Env } from '../types/env';
 import { generateToken } from '../utils/crypto';
 import { KVService } from '../services/kv';
 import { DingTalkService } from '../services/dingtalk';
-
-/**
- * 检查是否为模拟模式（开发环境）
- */
-function isMockMode(env: Env): boolean {
-  return (
-    env.DINGTALK_APP_KEY === 'your_app_key' ||
-    env.DINGTALK_APP_KEY === '' ||
-    env.DINGTALK_APP_SECRET === 'your_app_secret' ||
-    env.DINGTALK_APP_SECRET === ''
-  );
-}
+import { isDevelopment } from '../utils/env';
 
 export async function handleLoginPage(
   request: Request,
@@ -25,7 +14,7 @@ export async function handleLoginPage(
   ctx: ExecutionContext
 ): Promise<Response> {
   const url = new URL(request.url);
-  const isMock = isMockMode(env);
+  const isMock = isDevelopment(env, request);
   const kvService = new KVService(env.MY_KV);
 
   // 生成 state 并存储（用于防止 CSRF 攻击）

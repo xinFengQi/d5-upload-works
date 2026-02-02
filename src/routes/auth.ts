@@ -7,19 +7,8 @@ import { createErrorResponse, createSuccessResponse } from '../utils/response';
 import { DingTalkService } from '../services/dingtalk';
 import { KVService } from '../services/kv';
 import { generateToken } from '../utils/crypto';
+import { isDevelopment } from '../utils/env';
 import type { UserSession, DingTalkUser } from '../types/user';
-
-/**
- * 检查是否为模拟模式（开发环境）
- */
-function isMockMode(env: Env): boolean {
-  return (
-    env.DINGTALK_APP_KEY === 'your_app_key' ||
-    env.DINGTALK_APP_KEY === '' ||
-    env.DINGTALK_APP_SECRET === 'your_app_secret' ||
-    env.DINGTALK_APP_SECRET === ''
-  );
-}
 
 /**
  * 生成模拟用户信息
@@ -53,7 +42,7 @@ export async function handleAuthRoutes(
   const method = request.method;
 
   const kvService = new KVService(env.MY_KV);
-  const isMock = isMockMode(env);
+  const isMock = isDevelopment(env, request);
 
   // 钉钉登录入口（重定向到钉钉）
   if (path === '/auth/dingtalk' && method === 'GET') {

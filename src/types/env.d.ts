@@ -27,4 +27,7 @@ export interface Env {
 
   // 管理员密码
   ADMIN_PASSWORD: string;
+
+  // 环境标识（可选，用于明确标识开发/生产环境）
+  ENVIRONMENT?: string;
 }

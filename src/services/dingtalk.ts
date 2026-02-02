@@ -18,17 +18,28 @@ export class DingTalkService {
 
   /**
    * 获取钉钉登录授权 URL
+   * 参考官方文档：https://open.dingtalk.com/document/development/obtain-identity-credentials
+   * 
+   * 注意：钉钉 OAuth2 接口参数要求：
+   * - 授权端点：https://login.dingtalk.com/oauth2/auth
+   * - client_id: 应用标识（企业内部应用使用 AppKey，第三方企业应用使用 SuiteKey）
+   * - response_type: 固定为 'code'
+   * - scope: 授权范围，支持 'openid' 或 'openid corpid'（空格分隔，需要 URL 编码）
+   * - redirect_uri: 回调地址，必须在钉钉开放平台配置且完全匹配（包括协议、域名、端口、路径）
+   * - prompt: 值为 'consent' 时，会进入授权确认页
+   * - state: 状态参数，用于防止 CSRF 攻击（可选）
    */
   getAuthUrl(state?: string): string {
     const params = new URLSearchParams({
-      appid: this.appKey,
+      client_id: this.appKey, // 使用 client_id 而不是 appid
       response_type: 'code',
-      scope: 'openid',
+      scope: 'openid', // 使用 openid，如果需要组织ID可以使用 'openid corpid'
       redirect_uri: this.redirectUri,
-      state: state || this.generateState(),
+      prompt: 'consent', // 进入授权确认页
+      ...(state && { state }), // state 是可选的
     });
 
-    return `https://oapi.dingtalk.com/connect/oauth2/sns_authorize?${params.toString()}`;
+    return `https://login.dingtalk.com/oauth2/auth?${params.toString()}`;
   }
 
   /**
