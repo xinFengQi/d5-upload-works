@@ -32,8 +32,8 @@ app.locals.config = {
   ALLOWED_REDIRECT_ORIGINS: process.env.ALLOWED_REDIRECT_ORIGINS || '',
 };
 
-// 静态资源最先：/css/common.css、/index.html 等直接由静态中间件返回，避免被其它中间件影响
-const frontendPath = path.join(__dirname, '..', 'frontend', 'public');
+// 静态资源：Vue 构建产物在 frontend-vue/dist（需先在 frontend-vue 下执行 npm run build）
+const frontendPath = path.join(__dirname, '..', 'frontend-vue', 'dist');
 app.use(express.static(frontendPath, { index: false }));
 
 app.use(cors({ origin: true, credentials: true }));
@@ -49,20 +49,10 @@ app.use('/api/vote', voteRoutes);
 app.use('/api/screen-config', screenConfigRoutes);
 app.use('/api/judge', judgeRoutes);
 
-const pageMap = {
-  '/': 'index.html',
-  '/login': 'login.html',
-  '/upload': 'upload.html',
-  '/admin': 'admin.html',
-  '/screen': 'screen.html',
-  '/multi-screen': 'multi-screen.html',
-  '/vote-result': 'vote-result.html',
-};
-// 2. 页面路由：/login、/upload 等返回对应 HTML，其余回落到 index.html
+// SPA 回退：非 API 请求先尝试静态文件，失败则返回 index.html
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
-  const page = pageMap[req.path];
-  const file = page ? path.join(frontendPath, page) : path.join(frontendPath, req.path);
+  const file = path.join(frontendPath, req.path);
   res.sendFile(file, (err) => {
     if (err) res.sendFile(path.join(frontendPath, 'index.html'));
   });

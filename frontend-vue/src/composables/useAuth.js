@@ -62,7 +62,8 @@ export function useAuth() {
     if (router?.push) {
       router.push({ name: 'Login' });
     } else {
-      window.location.href = '/login';
+      const base = typeof window !== 'undefined' ? window.location.origin + (window.location.pathname || '/') : '';
+      window.location.href = base + '#/login';
     }
   }
 

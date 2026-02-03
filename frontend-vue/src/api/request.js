@@ -11,6 +11,10 @@ request.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // FormData 上传时不要带 Content-Type，让浏览器自动设 multipart/form-data; boundary=...
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 

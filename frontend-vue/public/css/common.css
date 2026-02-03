@@ -154,6 +154,11 @@ body.admin-page .navbar,
   max-width: 1400px;
 }
 
+/* 管理员页：导航与主内容统一加宽，与 .container 一致 */
+body.admin-page .navbar .nav-container {
+  max-width: 1600px;
+}
+
 .nav-brand {
   display: flex;
   align-items: center;
@@ -272,10 +277,15 @@ input[type="button"].btn {
   padding: 1.5rem;
 }
 
-body.admin-page .container,
-body.index-page .container {
+.admin-page .container,
+.index-page .container {
   max-width: 1400px;
   padding: 2rem;
+}
+
+body.admin-page .container {
+  max-width: 1600px;
+  width: 100%;
 }
 
 .upload-card {

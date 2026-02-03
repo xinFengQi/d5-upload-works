@@ -45,6 +45,10 @@ function initSchema(db) {
         db.prepare('UPDATE screen_config SET judges_json = ? WHERE judges_json IS NULL').run('[]');
       }
     }
+    const hasWorks = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='works'").get();
+    if (hasWorks && !hasColumn(db, 'works', 'category')) {
+      db.exec('ALTER TABLE works ADD COLUMN category TEXT');
+    }
     const hasJudgeScores = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='judge_scores'").get();
     if (!hasJudgeScores) {
       db.exec(`CREATE TABLE judge_scores (
@@ -57,6 +61,26 @@ function initSchema(db) {
       )`);
       db.exec('CREATE INDEX IF NOT EXISTS idx_judge_scores_work ON judge_scores(work_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_judge_scores_judge ON judge_scores(judge_email)');
+    }
+    const hasWorkJudgeScore = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='work_judge_score'").get();
+    if (!hasWorkJudgeScore) {
+      db.exec(`CREATE TABLE work_judge_score (
+        work_id TEXT PRIMARY KEY,
+        score REAL NOT NULL,
+        judge_count INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (work_id) REFERENCES works(id)
+      )`);
+    }
+    const hasWorkJudgeScoreNow = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='work_judge_score'").get();
+    if (hasWorkJudgeScoreNow) {
+      const count = db.prepare('SELECT COUNT(*) AS c FROM work_judge_score').get().c;
+      if (count === 0) {
+        db.prepare(`
+          INSERT INTO work_judge_score (work_id, score, judge_count, updated_at)
+          SELECT work_id, AVG(score), COUNT(*), MAX(created_at) FROM judge_scores GROUP BY work_id
+        `).run();
+      }
     }
   } catch (e) {
     console.error('Migration error:', e);

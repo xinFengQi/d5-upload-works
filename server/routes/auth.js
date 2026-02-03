@@ -51,7 +51,7 @@ function generateMockUser(userName) {
   };
 }
 
-// 钉钉登录入口
+// 钉钉登录入口（直接重定向，保留兼容）
 router.get('/dingtalk', (req, res) => {
   try {
     const state = generateToken();
@@ -65,6 +65,23 @@ router.get('/dingtalk', (req, res) => {
   } catch (err) {
     console.error('DingTalk auth error:', err);
     sendJson(res, createErrorResponse('Failed to initiate login', 'AUTH_ERROR', 500));
+  }
+});
+
+// 获取钉钉登录 URL（前端先调此接口拿到 url 再重定向）
+router.get('/dingtalk-url', (req, res) => {
+  try {
+    const state = generateToken();
+    const db = getDb();
+    db.prepare(
+      'INSERT OR REPLACE INTO auth_states (state, created_at) VALUES (?, ?)'
+    ).run(state, Date.now());
+    const dingtalk = new DingTalkService(req.app.locals.config);
+    const authUrl = dingtalk.getAuthUrl(state);
+    sendJson(res, createSuccessResponse({ url: authUrl }));
+  } catch (err) {
+    console.error('DingTalk auth URL error:', err);
+    sendJson(res, createErrorResponse('Failed to get login URL', 'AUTH_ERROR', 500));
   }
 });
 

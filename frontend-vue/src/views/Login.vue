@@ -7,10 +7,15 @@
         <p class="login-subtitle">登录后即可上传作品并参与投票</p>
       </div>
       <div class="login-buttons">
-        <a :href="dingtalkUrl" class="btn btn-primary">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="dingtalkLoading"
+          @click="goDingtalk"
+        >
           <span class="btn-icon">📱</span>
-          <span>钉钉登录</span>
-        </a>
+          <span>{{ dingtalkLoading ? '获取中...' : '钉钉登录' }}</span>
+        </button>
         <button v-if="showMockButton" type="button" class="btn btn-outline" @click="showMockModal = true">
           <span class="btn-icon">🔧</span>
           <span>模拟登录（开发环境）</span>
@@ -89,7 +94,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
-import { adminLogin, exchangeCode } from '../api/auth';
+import { getDingtalkAuthUrl, adminLogin, exchangeCode } from '../api/auth';
 
 const route = useRoute();
 const router = useRouter();
@@ -101,11 +106,7 @@ const mockUserName = ref('');
 const adminPassword = ref('');
 const adminError = ref('');
 const adminLoggingIn = ref(false);
-
-const dingtalkUrl = computed(() => {
-  const base = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${base}/api/auth/dingtalk`;
-});
+const dingtalkLoading = ref(false);
 
 const showMockButton = computed(() => {
   if (typeof window === 'undefined') return false;
@@ -122,6 +123,24 @@ function closeAdminModal() {
 function closeMockModal() {
   showMockModal.value = false;
   mockUserName.value = '';
+}
+
+async function goDingtalk() {
+  if (dingtalkLoading.value) return;
+  dingtalkLoading.value = true;
+  try {
+    const res = await getDingtalkAuthUrl();
+    if (res.success && res.data?.url) {
+      window.location.href = res.data.url;
+    } else {
+      dingtalkLoading.value = false;
+      alert(res.error?.message || '获取登录地址失败');
+    }
+  } catch (e) {
+    dingtalkLoading.value = false;
+    console.error('DingTalk auth URL error:', e);
+    alert('获取登录地址失败，请重试');
+  }
 }
 
 function onMockLogin() {
@@ -167,13 +186,20 @@ onMounted(async () => {
     router.replace({ path: '/', query: {} });
     return;
   }
-  const code = route.query.code || route.query.authCode;
+  // 钉钉回调的 code 可能在 hash 前 (?code=xxx#/login) 或 hash 内，两处都读
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const code =
+    route.query.code ||
+    route.query.authCode ||
+    (searchParams && (searchParams.get('code') || searchParams.get('authCode')));
   if (code) {
     try {
+      const state = route.query.state || (searchParams && searchParams.get('state'));
+      const mockUser = route.query.mock_user || (searchParams && searchParams.get('mock_user'));
       const res = await exchangeCode({
         code: code,
-        state: route.query.state,
-        mock_user: route.query.mock_user,
+        state: state,
+        mock_user: mockUser,
       });
       if (res.success && res.data?.token) {
         setToken(res.data.token);

@@ -72,8 +72,23 @@
               <div class="empty-state-icon">📭</div>
               <p>暂无作品</p>
             </div>
-            <div v-else id="worksTable">
-              <table class="table">
+            <template v-else>
+              <div class="works-cards">
+                <div v-for="work in sortedWorks" :key="work.id" class="work-card">
+                  <WorkVideoPreview :work="work" variant="card" @preview="openVideoPreview(work)" />
+                  <div class="work-card-content">
+                    <div class="work-card-title" :title="work.title">{{ work.title || '未命名作品' }}</div>
+                    <div class="work-card-meta">{{ work.creatorName || '未知' }} · {{ formatDate(work.createdAt) }}</div>
+                    <div class="work-card-votes">{{ work.voteCount ?? 0 }} 票</div>
+                    <div class="work-card-actions">
+                      <button type="button" class="btn btn-outline btn-sm" @click="showVoters(work)">查看投票</button>
+                      <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
+                      <button type="button" class="btn btn-danger" @click="showDelete(work)">删除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <table class="table" id="worksTable">
                 <thead>
                   <tr>
                     <th>预览</th>
@@ -86,7 +101,9 @@
                 </thead>
                 <tbody>
                   <tr v-for="work in sortedWorks" :key="work.id">
-                    <td><video class="work-video-preview" :src="work.fileUrl" muted></video></td>
+                    <td>
+                      <WorkVideoPreview :work="work" variant="cell" @preview="openVideoPreview(work)" />
+                    </td>
                     <td><div class="work-title" :title="work.title">{{ work.title || '未命名作品' }}</div></td>
                     <td><div class="work-creator">{{ work.creatorName || '未知' }}</div></td>
                     <td><div class="work-votes">{{ work.voteCount ?? 0 }} 票</div></td>
@@ -94,13 +111,14 @@
                     <td>
                       <div class="work-actions">
                         <button type="button" class="btn btn-outline btn-sm" @click="showVoters(work)">查看投票</button>
+                        <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
                         <button type="button" class="btn btn-danger" @click="showDelete(work)">删除</button>
                       </div>
                     </td>
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </template>
           </div>
         </div>
 
@@ -167,7 +185,7 @@
               </div>
               <div class="config-actions">
                 <button type="button" class="btn btn-primary" @click="saveScreenConfigBtn">保存配置</button>
-                <a href="/multi-screen" target="_blank" class="btn btn-outline config-link">打开多屏播放 ↗</a>
+                <a :href="multiScreenHref" target="_blank" rel="noopener" class="btn btn-outline config-link">打开多屏播放 ↗</a>
               </div>
             </div>
             <div v-if="configMessage" class="config-message">{{ configMessage }}</div>
@@ -204,6 +222,8 @@
       <span class="toast-message">{{ toast.message }}</span>
     </div>
 
+    <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
+
     <div class="modal" :class="{ active: deleteModal.show }" @click.self="deleteModal.show = false">
       <div class="modal-content">
         <h3 class="modal-title">确认删除</h3>
@@ -226,20 +246,45 @@
       </div>
     </div>
 
-    <div class="modal" :class="{ active: votersModal.show }" @click.self="votersModal.show = false">
-      <div class="modal-content">
+    <div id="votersModal" class="modal" :class="{ active: votersModal.show }" @click.self="votersModal.show = false">
+      <div class="modal-content modal-voters">
         <button type="button" class="modal-close" aria-label="关闭" @click="votersModal.show = false">×</button>
         <h3 class="modal-title">投票用户 ({{ votersModal.titleShort }})</h3>
         <div v-if="votersModal.loading" class="loading"><div class="spinner"></div><p>加载中...</p></div>
         <div v-else-if="votersModal.error" class="voters-empty"><p>{{ votersModal.error }}</p></div>
         <div v-else-if="votersModal.voters.length === 0" class="voters-empty"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><p>暂无投票用户</p></div>
-        <div v-else id="votersList">
+        <div v-else class="voters-list-wrap">
           <div class="voters-header">共 {{ votersModal.voters.length }} 人投票</div>
-          <div v-for="(v, i) in votersModal.voters" :key="i" class="voter-item">
-            <div class="voter-index">{{ i + 1 }}</div>
-            <div class="voter-info">
-              <div class="voter-name">{{ v.userName || '未知用户' }}</div>
-              <div class="voter-time">{{ formatDate(v.createdAt) }}</div>
+          <div class="voters-list-scroll">
+            <div v-for="(v, i) in votersModal.voters" :key="i" class="voter-item">
+              <div class="voter-index">{{ i + 1 }}</div>
+              <div class="voter-info">
+                <div class="voter-name">{{ v.userName || '未知用户' }}</div>
+                <div class="voter-time">{{ formatDate(v.createdAt) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="scoresModal" class="modal" :class="{ active: scoresModal.show }" @click.self="scoresModal.show = false">
+      <div class="modal-content modal-scores">
+        <button type="button" class="modal-close" aria-label="关闭" @click="scoresModal.show = false">×</button>
+        <h3 class="modal-title">评委评分 ({{ scoresModal.titleShort }})</h3>
+        <div v-if="scoresModal.loading" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+        <div v-else-if="scoresModal.error" class="voters-empty"><p>{{ scoresModal.error }}</p></div>
+        <div v-else-if="scoresModal.scores.length === 0" class="voters-empty"><div style="font-size:3rem;margin-bottom:1rem;">📋</div><p>暂无评委评分</p></div>
+        <div v-else class="scores-list-wrap">
+          <div class="voters-header">共 {{ scoresModal.scores.length }} 位评委评分</div>
+          <div class="scores-list-scroll">
+            <div v-for="(s, i) in scoresModal.scores" :key="i" class="score-item">
+              <div class="voter-index">{{ i + 1 }}</div>
+              <div class="score-info">
+                <div class="score-judge">{{ s.judgeEmail }}</div>
+                <div class="score-value">{{ s.score }} 分</div>
+                <div class="voter-time">{{ formatDate(s.createdAt) }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -251,9 +296,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import WorkVideoPreview from '../components/WorkVideoPreview.vue';
+import WorkVideoModal from '../components/WorkVideoModal.vue';
 import request from '../api/request';
 import { getWorks, deleteWork } from '../api/works';
 import { getVoteUsers } from '../api/vote';
+import { getWorkJudgeScores } from '../api/judge';
 import { getScreenConfig, saveScreenConfig as apiSaveScreenConfig } from '../api/screenConfig';
 
 const router = useRouter();
@@ -287,7 +335,15 @@ const configMessage = ref('');
 const toast = reactive({ show: false, type: 'success', icon: '✓', message: '' });
 const deleteModal = reactive({ show: false, id: null, title: '', loading: false });
 const votersModal = reactive({ show: false, workId: null, titleShort: '', loading: false, error: '', voters: [] });
+const scoresModal = reactive({ show: false, workId: null, titleShort: '', loading: false, error: '', scores: [] });
 const judgeDeleteModal = reactive({ show: false, index: null, email: '' });
+const previewWork = ref(null);
+const videoModalOpen = ref(false);
+
+/** Hash 路由下新开多屏播放的完整 URL */
+const multiScreenHref = computed(() =>
+  typeof window !== 'undefined' ? window.location.origin + (window.location.pathname || '/') + '#/multi-screen' : '#/multi-screen'
+);
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('token');
@@ -314,6 +370,18 @@ const sortedWorks = computed(() => [...works.value].sort((a, b) => (b.createdAt 
 function formatDate(ts) {
   if (!ts) return '-';
   return new Date(ts).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function openVideoPreview(work) {
+  const url = work?.fileUrl ?? work?.file_url;
+  if (!url) return;
+  previewWork.value = work;
+  videoModalOpen.value = true;
+}
+
+function closeVideoModal() {
+  previewWork.value = null;
+  videoModalOpen.value = false;
 }
 
 function applyTheme(t) {
@@ -508,6 +576,29 @@ function showVoters(work) {
     });
 }
 
+function showScores(work) {
+  scoresModal.workId = work.id;
+  scoresModal.titleShort = (work.title || '未命名').length > 30 ? (work.title || '未命名').slice(0, 30) + '...' : (work.title || '未命名');
+  scoresModal.show = true;
+  scoresModal.loading = true;
+  scoresModal.error = '';
+  scoresModal.scores = [];
+  getWorkJudgeScores(work.id)
+    .then((res) => {
+      if (res.success && res.data?.scores) {
+        scoresModal.scores = res.data.scores;
+      } else {
+        scoresModal.error = '加载失败，请重试';
+      }
+    })
+    .catch(() => {
+      scoresModal.error = '加载失败，请重试';
+    })
+    .finally(() => {
+      scoresModal.loading = false;
+    });
+}
+
 function saveTheme() {
   const t = { ...theme };
   if (!/^#[0-9A-Fa-f]{6}$/.test(t.primaryColor) || !/^#[0-9A-Fa-f]{6}$/.test(t.primaryDark) || !/^#[0-9A-Fa-f]{6}$/.test(t.primaryLight) || !/^#[0-9A-Fa-f]{6}$/.test(t.secondaryColor)) {
@@ -628,6 +719,16 @@ onMounted(async () => {
 
 .tab-panel {
   animation: fadeIn 0.2s ease;
+  width: 100%;
+}
+/* 配置管理 tab：配置卡片与内容区占满容器宽度，与作品列表一致 */
+.admin-page .tab-panel .config-card {
+  width: 100%;
+  max-width: none;
+}
+.admin-page .tab-panel .config-content {
+  width: 100%;
+  max-width: none;
 }
 
 @keyframes fadeIn {
@@ -729,7 +830,39 @@ onMounted(async () => {
 }
 
 #adminContent { display: block; }
+
+/* 作品列表区域加宽，表格占满容器 */
+.admin-page .works-table-container {
+  width: 100%;
+}
+.admin-page .works-table-container .table {
+  width: 100%;
+}
+.admin-page .works-table-container .table .work-title {
+  max-width: none;
+}
+
+/* 预览列可点击播放：与 Score 一致，使用 WorkVideoPreview + WorkVideoModal */
+.admin-page .works-table-container .table tbody tr td:first-child {
+  vertical-align: middle;
+  padding: 0.5rem;
+}
+.admin-page .works-table-container .table tbody tr td:first-child :deep(.work-video-preview-wrap) {
+  display: inline-block;
+  cursor: pointer;
+}
+
 .modal#deleteModal { z-index: 3000; }
 .modal#votersModal .modal-content { max-width: 600px; }
-#votersList { max-height: 400px; overflow-y: auto; }
+.modal-voters .voters-list-wrap { display: flex; flex-direction: column; min-height: 0; }
+.modal-voters .voters-list-scroll { max-height: min(400px, 60vh); overflow-y: auto; }
+.modal#scoresModal .modal-content { max-width: 600px; }
+.modal-scores .scores-list-wrap { display: flex; flex-direction: column; min-height: 0; }
+.modal-scores .scores-list-scroll { max-height: min(400px, 60vh); overflow-y: auto; }
+.score-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+.score-item:last-child { border-bottom: none; }
+.score-info { flex: 1; min-width: 0; }
+.score-judge { font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
+.score-value { font-weight: 700; color: var(--primary-color); font-size: 1.125rem; margin-bottom: 0.25rem; }
+
 </style>

@@ -9,10 +9,10 @@
       <p>加载中...</p>
     </div>
 
-    <div v-else-if="items.length === 0" class="empty-state">
-      <div style="font-size: 5rem; margin-bottom: 1rem;">📺</div>
+    <div v-else-if="!initialized && worksLatest.length === 0" class="empty-state">
+      <div class="empty-state-icon">📺</div>
       <h2>暂无作品</h2>
-      <p style="opacity: 0.8; margin-top: 0.5rem;">请先上传作品</p>
+      <p class="empty-state-hint">请先上传作品</p>
     </div>
 
     <div
@@ -20,40 +20,136 @@
       ref="gridRef"
       class="grid-container"
       :class="gridClass"
-      :style="gridStyle"
     >
-      <div v-for="(_, cellIndex) in totalCells" :key="cellIndex" class="video-cell">
+      <div
+        v-for="(_, cellIndex) in totalCells"
+        :key="cellIndex"
+        class="video-cell"
+        :class="{ playing: playingCells.has(cellIndex) }"
+      >
         <video muted playsinline></video>
-        <div class="video-info"></div>
+        <div class="video-info" :ref="(el) => setInfoRef(cellIndex, el)"></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { getScreenConfig } from '../api/screenConfig';
 import { getWorks } from '../api/works';
+import { getVoteStats } from '../api/vote';
 
-const layoutMap = { '2x2': 'grid-2x2', '2x3': 'grid-2x3', '3x2': 'grid-3x2', '3x3': 'grid-3x3', '4x4': 'grid-4x4' };
+const layoutMap = {
+  '2x2': 'grid-2x2',
+  '2x3': 'grid-2x3',
+  '3x2': 'grid-3x2',
+  '3x3': 'grid-3x3',
+  '4x4': 'grid-4x4',
+};
+
+const POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 分钟
 
 const loading = ref(true);
+const initialized = ref(false);
 const config = ref({ gridLayout: '2x2' });
-const items = ref([]);
+const worksLatest = ref([]);
+const cellQueues = ref([]);
+const playingCells = ref(new Set());
 const gridRef = ref(null);
+const infoRefs = ref({});
 
 const parts = computed(() => (config.value.gridLayout || '2x2').split('x').map(Number));
 const rows = computed(() => parts.value[0] || 2);
 const cols = computed(() => parts.value[1] || 2);
 const totalCells = computed(() => rows.value * cols.value);
 const gridClass = computed(() => layoutMap[config.value.gridLayout] || 'grid-2x2');
-const gridStyle = computed(() => ({
-  display: 'grid',
-  gridTemplateColumns: `repeat(${cols.value}, 1fr)`,
-  gridTemplateRows: `repeat(${rows.value}, 1fr)`,
-}));
 
-onMounted(async () => {
+function setInfoRef(cellIndex, el) {
+  if (el) infoRefs.value[cellIndex] = el;
+}
+
+function truncateText(text, maxLen) {
+  if (!text) return '';
+  return text.length <= maxLen ? text : text.slice(0, maxLen) + '...';
+}
+
+function getGridSize() {
+  return totalCells.value;
+}
+
+/** 为每个单元格分配队列：作品 i 放入单元格 i % gridSize */
+function buildCellQueues() {
+  const size = getGridSize();
+  const list = worksLatest.value;
+  const queues = [];
+  for (let i = 0; i < size; i++) {
+    queues.push(list.filter((_, j) => j % size === i));
+  }
+  cellQueues.value = queues;
+}
+
+/** 在指定单元格播放下一个；队列空时从 worksLatest 补充，不打断其他格 */
+function playNextInCell(cellIndex) {
+  const size = getGridSize();
+  let queue = cellQueues.value[cellIndex];
+  if (!queue) cellQueues.value[cellIndex] = [];
+  queue = cellQueues.value[cellIndex];
+
+  if (queue.length === 0) {
+    const list = worksLatest.value;
+    if (list.length === 0) return;
+    for (let i = 0; i < list.length; i++) {
+      if (i % size === cellIndex) queue.push(list[i]);
+    }
+    if (queue.length === 0) return;
+  }
+
+  const work = queue.shift();
+  if (!work) return;
+
+  if (!gridRef.value) return;
+  const cells = gridRef.value.querySelectorAll('.video-cell');
+  const cell = cells[cellIndex];
+  const video = cell?.querySelector('video');
+  const infoEl = infoRefs.value[cellIndex];
+
+  if (!video) return;
+
+  video.src = work.fileUrl;
+  video.load();
+
+  const title = work.title || '未命名作品';
+  console.log('[多屏展示] 单元格', cellIndex, '开始播放:', title, '| 作品ID:', work.id);
+
+  if (infoEl) {
+    infoEl.innerHTML = `
+      <div class="video-info-title">${truncateText(work.title || '未命名作品', 30)}</div>
+      <div class="video-info-meta">
+        <span>${work.creatorName || '未知'}</span>
+        <span class="video-info-votes"><span class="video-info-heart">❤️</span>${work.voteCount ?? 0}</span>
+      </div>
+    `;
+  }
+
+  playingCells.value = new Set([...playingCells.value, cellIndex]);
+
+  video.onended = () => {
+    playingCells.value = new Set([...playingCells.value].filter((i) => i !== cellIndex));
+    playNextInCell(cellIndex);
+  };
+  video.onerror = () => {
+    playingCells.value = new Set([...playingCells.value].filter((i) => i !== cellIndex));
+    setTimeout(() => playNextInCell(cellIndex), 1000);
+  };
+
+  video.play().catch(() => {
+    setTimeout(() => playNextInCell(cellIndex), 1000);
+  });
+}
+
+/** 拉取配置 + 作品（含投票数）；仅首次会初始化网格与队列，轮询只更新 worksLatest */
+async function loadData() {
   try {
     const [configRes, worksRes] = await Promise.all([
       getScreenConfig(),
@@ -62,49 +158,183 @@ onMounted(async () => {
     if (configRes.success && configRes.data) {
       config.value = configRes.data;
     }
-    if (worksRes.success && Array.isArray(worksRes.data?.items)) {
-      items.value = worksRes.data.items;
+    const items = worksRes.success && Array.isArray(worksRes.data?.items) ? worksRes.data.items : [];
+    if (items.length === 0) {
+      if (!initialized.value) {
+        loading.value = false;
+        worksLatest.value = [];
+      }
+      return;
+    }
+
+    const withVotes = await Promise.all(
+      items.map(async (w) => {
+        try {
+          const res = await getVoteStats(w.id);
+          return { ...w, voteCount: res?.success && res?.data ? (res.data.count ?? 0) : 0 };
+        } catch {
+          return { ...w, voteCount: 0 };
+        }
+      })
+    );
+    worksLatest.value = withVotes;
+
+    if (!initialized.value) {
+      loading.value = false;
+      buildCellQueues();
+      initialized.value = true;
+      await nextTick();
+      for (let i = 0; i < getGridSize(); i++) {
+        playNextInCell(i);
+      }
     }
   } catch {
-    items.value = [];
-  } finally {
-    loading.value = false;
-  }
-});
-
-watch(
-  () => [items.value.length, totalCells.value],
-  () => {
-    if (items.value.length === 0 || !gridRef.value) return;
-    const total = totalCells.value;
-    const videos = gridRef.value.querySelectorAll('.video-cell video');
-    const infos = gridRef.value.querySelectorAll('.video-info');
-    for (let i = 0; i < total && i < videos.length; i++) {
-      const queue = items.value.filter((_, j) => j % total === i);
-      const video = videos[i];
-      const info = infos[i];
-      if (!video || !queue.length) continue;
-      let idx = 0;
-      function playNext() {
-        if (queue.length === 0) return;
-        const w = queue[idx % queue.length];
-        video.src = w.fileUrl;
-        if (info) info.textContent = (w.title || '未命名') + ' · ' + (w.creatorName || '');
-        video.onended = () => {
-          idx++;
-          playNext();
-        };
-        video.play().catch(() => playNext());
-      }
-      playNext();
+    if (!initialized.value) {
+      loading.value = false;
+      worksLatest.value = [];
     }
-  },
-  { flush: 'post' }
-);
+  }
+}
+
+let pollTimer = null;
+onMounted(() => {
+  loadData();
+  pollTimer = setInterval(loadData, POLL_INTERVAL_MS);
+});
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+});
 </script>
 
 <style scoped>
-.screen-full .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 2000; color: white; }
-.screen-full .empty-state { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 2000; color: white; }
-.screen-full .spinner { border-color: rgba(255,255,255,0.3); border-top-color: white; }
+.screen-full {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  color: white;
+  overflow: hidden;
+  position: relative;
+}
+
+.logo-exit {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 2000;
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+.logo-exit:hover {
+  opacity: 1;
+}
+.logo-exit img {
+  height: 50px;
+  width: auto;
+}
+
+.loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 2000;
+  color: white;
+}
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 2000;
+  color: white;
+}
+.empty-state-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+}
+.empty-state-hint {
+  opacity: 0.8;
+  margin-top: 0.5rem;
+}
+
+.grid-container {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.25rem;
+}
+.grid-2x2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+.grid-2x3 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); }
+.grid-3x2 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+.grid-3x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+.grid-4x4 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
+
+.video-cell {
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease;
+}
+.video-cell.playing {
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
+}
+.video-cell video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 下方悬浮信息：参考 multi-screen-page.ts */
+.video-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.6), transparent);
+  padding: 0.75rem 0.5rem;
+  font-size: 0.75rem;
+  color: white;
+  z-index: 10;
+}
+.video-info-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.video-info-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+.video-info-votes {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.video-info-heart {
+  font-size: 0.65rem;
+}
 </style>

@@ -75,4 +75,37 @@ function requireJudge(req, res, next) {
   next();
 }
 
-module.exports = { getSessionUser, requireUser, requireAdmin, requireJudge };
+/** 管理员或评委：用于查看某作品的评委评分明细等 */
+function requireAdminOrJudge(req, res, next) {
+  const user = getSessionUser(req);
+  if (!user) {
+    return sendJson(res, createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401));
+  }
+  if (user.role === 'admin') {
+    req.user = user;
+    return next();
+  }
+  const userEmail = (user.email || '').trim().toLowerCase();
+  if (!userEmail) {
+    return sendJson(res, createErrorResponse('您未绑定邮箱，无法使用该功能', 'NO_EMAIL', 403));
+  }
+  const db = getDb();
+  const row = db.prepare('SELECT judges_json FROM screen_config WHERE id = 1').get();
+  if (!row || !row.judges_json) {
+    return sendJson(res, createErrorResponse('Forbidden', 'FORBIDDEN', 403));
+  }
+  try {
+    const judges = JSON.parse(row.judges_json);
+    const isJudge = Array.isArray(judges) && judges.some((e) => String(e).trim().toLowerCase() === userEmail);
+    if (!isJudge) {
+      return sendJson(res, createErrorResponse('Forbidden', 'FORBIDDEN', 403));
+    }
+  } catch (_) {
+    return sendJson(res, createErrorResponse('Forbidden', 'FORBIDDEN', 403));
+  }
+  req.user = user;
+  req.judgeEmail = userEmail;
+  next();
+}
+
+module.exports = { getSessionUser, requireUser, requireAdmin, requireJudge, requireAdminOrJudge };

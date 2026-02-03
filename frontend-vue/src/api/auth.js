@@ -10,6 +10,11 @@ export function exchangeCode(params) {
   return request.get('/api/auth/exchange', { params }).then((res) => res.data);
 }
 
+/** 获取钉钉登录 URL（拿到后再前端重定向） */
+export function getDingtalkAuthUrl() {
+  return request.get('/api/auth/dingtalk-url').then((res) => res.data);
+}
+
 /** 管理员登录 */
 export function adminLogin(password) {
   return request.post('/api/auth/admin', { password }).then((res) => res.data);

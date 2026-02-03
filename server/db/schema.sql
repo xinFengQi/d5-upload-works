@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS works (
   file_size INTEGER NOT NULL,
   file_type TEXT NOT NULL,
   creator_name TEXT,
+  category TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   FOREIGN KEY (userid) REFERENCES users(userid)
@@ -54,7 +55,7 @@ CREATE TABLE IF NOT EXISTS votes (
 CREATE INDEX IF NOT EXISTS idx_votes_work ON votes(work_id);
 CREATE INDEX IF NOT EXISTS idx_votes_user ON votes(user_id);
 
--- 评委评分表（每评委每作品一分数，1-100）
+-- 评委评分明细（每评委每作品一分数，用于计算作品维度汇总）
 CREATE TABLE IF NOT EXISTS judge_scores (
   work_id TEXT NOT NULL,
   judge_email TEXT NOT NULL,
@@ -65,6 +66,15 @@ CREATE TABLE IF NOT EXISTS judge_scores (
 );
 CREATE INDEX IF NOT EXISTS idx_judge_scores_work ON judge_scores(work_id);
 CREATE INDEX IF NOT EXISTS idx_judge_scores_judge ON judge_scores(judge_email);
+
+-- 作品评委评分汇总（主键为作品，所有评委对该作品打分的平均分与人数）
+CREATE TABLE IF NOT EXISTS work_judge_score (
+  work_id TEXT PRIMARY KEY,
+  score REAL NOT NULL,
+  judge_count INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (work_id) REFERENCES works(id)
+);
 
 -- 大屏与系统配置（单行）
 CREATE TABLE IF NOT EXISTS screen_config (

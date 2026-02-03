@@ -15,7 +15,7 @@
           <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
           <router-link to="/upload" class="btn btn-primary">上传作品</router-link>
           <router-link to="/vote-result" class="btn btn-outline">投票结果</router-link>
-          <router-link v-if="isJudge" to="/score" class="btn btn-outline">去评分</router-link>
+          <router-link v-if="isJudge || isAdmin" to="/score" class="btn btn-outline">作品评价</router-link>
           <router-link to="/screen" class="btn btn-outline">大屏展示</router-link>
           <router-link to="/multi-screen" class="btn btn-outline">多屏播放</router-link>
           <router-link v-if="isAdmin" to="/admin" class="btn btn-outline">管理</router-link>
@@ -40,7 +40,7 @@
         <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
         <router-link to="/upload" class="btn btn-primary" @click="closeSideMenu">上传作品</router-link>
         <router-link to="/vote-result" class="btn btn-outline" @click="closeSideMenu">投票结果</router-link>
-        <router-link v-if="isJudge" to="/score" class="btn btn-outline" @click="closeSideMenu">去评分</router-link>
+        <router-link v-if="isJudge || isAdmin" to="/score" class="btn btn-outline" @click="closeSideMenu">作品评价</router-link>
         <router-link to="/screen" class="btn btn-outline" @click="closeSideMenu">大屏展示</router-link>
         <router-link to="/multi-screen" class="btn btn-outline" @click="closeSideMenu">多屏播放</router-link>
         <router-link v-if="isAdmin" to="/admin" class="btn btn-outline" @click="closeSideMenu">管理</router-link>
@@ -62,10 +62,7 @@
       <div class="masonry-grid" ref="gridRef">
         <div v-for="w in works" :key="w.id" class="masonry-item">
           <div class="work-card">
-            <div class="work-video-container" @click="playVideo(w.fileUrl, w.title)">
-              <video class="work-video" :src="w.fileUrl" preload="metadata"></video>
-              <div class="work-video-overlay"><div class="play-icon">▶</div></div>
-            </div>
+            <WorkVideoPreview :work="w" variant="card" @preview="openVideoPreview(w)" />
             <div class="work-content">
               <div class="work-title">{{ w.title || '未命名作品' }}</div>
               <div class="work-creator">{{ w.creatorName || '未知' }}</div>
@@ -74,7 +71,7 @@
                 <button
                   type="button"
                   :class="['vote-btn', w.hasVoted && 'voted', w.isOwner && 'own-work']"
-                  :disabled="w.hasVoted || w.isOwner || (userVoteCount >= MAX_VOTES && !w.hasVoted && !w.isOwner)"
+                  :disabled="w.hasVoted || w.isOwner || (userVoteCount >= maxVotesPerUser && !w.hasVoted && !w.isOwner)"
                   @click.stop="handleVote(w)"
                 >
                   {{ w.hasVoted ? '已投票' : w.isOwner ? '自己的作品' : '投票' }}
@@ -92,12 +89,7 @@
       </div>
     </main>
 
-    <div class="video-modal" :class="{ active: videoModalOpen }" @click.self="closeVideoModal">
-      <div class="video-modal-content">
-        <button type="button" class="video-modal-close" @click="closeVideoModal">×</button>
-        <video ref="modalVideoRef" controls autoplay></video>
-      </div>
-    </div>
+    <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
 
     <router-link to="/upload" class="fab" title="上传作品">+</router-link>
   </div>
@@ -106,13 +98,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import WorkVideoPreview from '../components/WorkVideoPreview.vue';
+import WorkVideoModal from '../components/WorkVideoModal.vue';
 import { useAuth } from '../composables/useAuth';
 import { getWorks } from '../api/works';
 import { getVoteStats, getUserVoteCount, vote as apiVote } from '../api/vote';
 import { getScreenConfig } from '../api/screenConfig';
 import { exchangeCode } from '../api/auth';
 
-const MAX_VOTES = 1;
 const route = useRoute();
 const router = useRouter();
 const { user, isLoggedIn, isAdmin, isJudge, setToken, checkAuth, logout } = useAuth();
@@ -120,11 +113,13 @@ const { user, isLoggedIn, isAdmin, isJudge, setToken, checkAuth, logout } = useA
 const loading = ref(true);
 const works = ref([]);
 const userVoteCount = ref(0);
+/** 每人最多投票数（从管理员配置读取，默认 1） */
+const maxVotesPerUser = ref(1);
 const showUserDropdown = ref(false);
 const showSideUserDropdown = ref(false);
 const sideMenuOpen = ref(false);
 const videoModalOpen = ref(false);
-const modalVideoRef = ref(null);
+const previewWork = ref(null);
 const gridRef = ref(null);
 
 function applyTheme(theme) {
@@ -142,7 +137,11 @@ function applyTheme(theme) {
 async function loadTheme() {
   try {
     const res = await getScreenConfig();
-    if (res.success && res.data?.theme) applyTheme(res.data.theme);
+    if (res.success && res.data) {
+      if (res.data.theme) applyTheme(res.data.theme);
+      const n = res.data.maxVotesPerUser != null ? Number(res.data.maxVotesPerUser) : 1;
+      maxVotesPerUser.value = Math.min(100, Math.max(1, n));
+    }
   } catch {}
 }
 
@@ -174,6 +173,7 @@ function toDisplayItem(work, stats) {
     id: work.id,
     fileUrl: work.fileUrl,
     title: work.title,
+    description: work.description,
     creatorName: work.creatorName,
     userId: work.userId,
     voteCount: (stats?.success && stats?.data) ? (stats.data.voteCount ?? work.voteCount) : (work.voteCount ?? 0),
@@ -222,18 +222,14 @@ async function loadWorks() {
   }
 }
 
-function playVideo(url, title) {
-  if (!modalVideoRef.value || !url) return;
-  modalVideoRef.value.src = url;
-  modalVideoRef.value.load();
+function openVideoPreview(work) {
+  if (!work?.fileUrl) return;
+  previewWork.value = work;
   videoModalOpen.value = true;
 }
 
 function closeVideoModal() {
-  if (modalVideoRef.value) {
-    modalVideoRef.value.pause();
-    modalVideoRef.value.src = '';
-  }
+  previewWork.value = null;
   videoModalOpen.value = false;
 }
 
@@ -244,8 +240,8 @@ async function handleVote(w) {
     if (confirm('请先登录才能投票，是否前往登录页面？')) router.push({ name: 'Login' });
     return;
   }
-  if (userVoteCount.value >= MAX_VOTES) {
-    alert(`您已经投了 ${MAX_VOTES} 票，不能再投票了`);
+  if (userVoteCount.value >= maxVotesPerUser.value) {
+    alert(`您已经投了 ${maxVotesPerUser.value} 票，每人最多可投 ${maxVotesPerUser.value} 票`);
     return;
   }
   try {
@@ -270,18 +266,26 @@ onMounted(async () => {
       setToken(tokenFromUrl);
       window.history.replaceState({}, document.title, route.path || '/');
     } else {
-      // 钉钉回调带 code/authCode（直接进前端时）：调 exchange 换 token，再登录到首页
-      const code = route.query.code || route.query.authCode;
+      // 钉钉回调带 code/authCode：可能落在 hash 前 (?code=xxx#/) 或 hash 内 (#/?code=xxx)，两处都读
+      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const code =
+        route.query.code ||
+        route.query.authCode ||
+        (searchParams && (searchParams.get('code') || searchParams.get('authCode')));
       if (code) {
         try {
+          const state = route.query.state || (searchParams && searchParams.get('state'));
+          const mockUser = route.query.mock_user || (searchParams && searchParams.get('mock_user'));
           const res = await exchangeCode({
             code: code,
-            state: route.query.state,
-            mock_user: route.query.mock_user,
+            state: state,
+            mock_user: mockUser,
           });
           if (res.success && res.data?.token) {
             setToken(res.data.token);
-            window.history.replaceState({}, document.title, route.path || '/');
+            // 清掉 URL 上的 code/state，避免刷新重复用
+            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (window.location.hash || '#/');
+            window.history.replaceState({}, document.title, cleanUrl);
           }
         } catch (e) {
           console.error('Exchange code for token failed:', e);

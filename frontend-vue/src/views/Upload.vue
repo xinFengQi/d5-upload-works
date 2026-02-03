@@ -206,6 +206,10 @@ async function submitWithDirectUpload(file, t2, desc) {
     console.warn('[STS 直传失败] 凭证不可用，将改为经服务器上传。原因：', reason);
     return { success: false, reason, fallback: true };
   }
+  if (!user.value?.userid) {
+    console.warn('[STS 直传失败] 用户信息未加载，将改为经服务器上传');
+    return { success: false, reason: '用户信息未加载', fallback: true };
+  }
   const { region, bucket, accessKeyId, accessKeySecret, stsToken } = stsRes.data;
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
   const objectKey = `works/${user.value.userid}/${Date.now()}_${randomId()}.${ext}`;
@@ -231,7 +235,9 @@ async function submitWithDirectUpload(file, t2, desc) {
     console.error('[STS 直传失败] 上传到 OSS 失败：', msg, err);
     return { success: false, reason: `OSS 上传失败：${msg}`, fallback: false };
   }
-  const fileUrl = `https://${bucket}.${region}.aliyuncs.com/${objectKey}`;
+  // OSS 外网域名为 bucket.oss-cn-xxx.aliyuncs.com，region 需带 oss- 前缀
+  const ossRegion = region.startsWith('oss-') ? region : `oss-${region}`;
+  const fileUrl = `https://${bucket}.${ossRegion}.aliyuncs.com/${objectKey}`;
   let completeRes;
   try {
     completeRes = await completeUpload({
@@ -317,7 +323,8 @@ onMounted(async () => {
   if (tokenFromUrl) {
     const { setToken } = useAuth();
     setToken(tokenFromUrl);
-    window.history.replaceState({}, document.title, window.location.pathname);
+    const hashPath = router.currentRoute.value.fullPath || '/';
+    window.history.replaceState({}, document.title, window.location.pathname + '#' + hashPath);
   }
   const u = await checkAuth();
   if (!u) router.push({ name: 'Login' });

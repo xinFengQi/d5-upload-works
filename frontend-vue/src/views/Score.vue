@@ -6,9 +6,9 @@
         <p>正在验证评委身份...</p>
       </div>
     </template>
-    <template v-else-if="!isJudge">
+    <template v-else-if="!canAccessScore">
       <div class="score-redirect">
-        <p>您不是评委，无法访问此页面</p>
+        <p>仅评委或管理员可访问此页面</p>
         <router-link to="/" class="btn btn-primary" style="margin-top: 1rem;">返回首页</router-link>
       </div>
     </template>
@@ -27,8 +27,8 @@
 
       <main class="container">
         <div class="page-header">
-          <h1 class="page-title">评分列表</h1>
-          <p class="page-subtitle">对所有作品进行评分（1–100 分）</p>
+          <h1 class="page-title">作品评价</h1>
+          <p class="page-subtitle">评委作品管理，对作品进行评分与评价</p>
         </div>
 
         <div class="works-table-container">
@@ -43,50 +43,170 @@
             <div class="empty-state-icon">📭</div>
             <p>暂无作品</p>
           </div>
-          <div v-else>
-            <table class="table">
+          <template v-else>
+            <div class="works-cards score-works-cards">
+              <div v-for="work in sortedWorks" :key="work.id" class="work-card score-work-card">
+                <WorkVideoPreview :work="work" variant="card" @preview="openVideoPreview(work)" />
+                <div class="work-card-content">
+                  <div class="work-card-title" :title="work.title">{{ work.title || '未命名作品' }}</div>
+                  <div class="work-card-meta">{{ work.creatorName || '未知' }} · {{ formatDate(work.createdAt) }}</div>
+                  <div class="score-card-row">
+                    <span class="work-card-votes">{{ work.voteCount ?? 0 }} 票</span>
+                    <span class="score-card-judge">{{ formatJudgeScore(work) }}</span>
+                    <span class="score-card-my">{{ work.myScore != null ? work.myScore + ' 分' : '未打分' }}</span>
+                  </div>
+                  <div class="score-card-category">
+                    <span class="score-card-category-label">分类：</span>
+                    <span class="score-card-category-value">{{ work.category || '未设置' }}</span>
+                  </div>
+                  <div class="work-card-actions score-card-actions">
+                    <button v-if="isJudge" type="button" class="btn btn-primary" @click="openScoreModal(work)">评分</button>
+                    <button v-if="isJudge" type="button" class="btn btn-category" @click="openCategoryModal(work)">修改分类</button>
+                    <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <table class="table score-works-table">
               <thead>
                 <tr>
                   <th>预览</th>
                   <th>作品标题</th>
                   <th>创作者</th>
+                  <th>分类</th>
                   <th>投票数</th>
                   <th>上传时间</th>
-                  <th>我的评分</th>
+                  <th>评委评分</th>
+                  <th>我的打分</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="work in sortedWorks" :key="work.id">
-                  <td><video class="work-video-preview" :src="work.fileUrl" muted></video></td>
+                  <td>
+                    <WorkVideoPreview :work="work" variant="cell" @preview="openVideoPreview(work)" />
+                  </td>
                   <td><div class="work-title" :title="work.title">{{ work.title || '未命名作品' }}</div></td>
                   <td><div class="work-creator">{{ work.creatorName || '未知' }}</div></td>
+                  <td><div class="work-category">{{ work.category || '未设置' }}</div></td>
                   <td><div class="work-votes">{{ work.voteCount ?? 0 }} 票</div></td>
                   <td><div class="work-date">{{ formatDate(work.createdAt) }}</div></td>
-                  <td><div class="work-my-score">{{ work.myScore != null ? work.myScore + ' 分' : '未评分' }}</div></td>
+                  <td><div class="work-judge-score">{{ formatJudgeScore(work) }}</div></td>
+                  <td><div class="work-my-score">{{ work.myScore != null ? work.myScore + ' 分' : '未打分' }}</div></td>
                   <td>
-                    <button type="button" class="btn btn-primary btn-sm" @click="openScoreModal(work)">
-                      {{ work.myScore != null ? '修改' : '评分' }}
-                    </button>
+                    <div class="score-table-actions">
+                      <button v-if="isJudge" type="button" class="btn btn-primary btn-sm" @click="openScoreModal(work)">评分</button>
+                      <button v-if="isJudge" type="button" class="btn btn-category btn-sm" @click="openCategoryModal(work)">修改分类</button>
+                      <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
-          </div>
+          </template>
         </div>
       </main>
     </div>
 
-    <div class="modal" :class="{ active: scoreModal.show }" @click.self="scoreModal.show = false">
-      <div class="modal-content modal-content-sm">
-        <h3 class="modal-title">评分</h3>
-        <p class="modal-message">为「{{ scoreModal.title }}」打分（1–100 分）</p>
-        <div class="score-input-group">
-          <input v-model.number="scoreModal.score" type="number" class="config-input" min="1" max="100" placeholder="1-100">
+    <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
+
+    <!-- 修改分类弹框 -->
+    <div class="modal category-modal" :class="{ active: categoryModal.show }" @click.self="closeCategoryModal">
+      <div class="modal-content category-modal-content">
+        <button type="button" class="modal-close category-modal-close" aria-label="关闭" @click="closeCategoryModal">×</button>
+        <h3 class="modal-title category-modal-title">修改分类</h3>
+        <p class="category-modal-work">「{{ categoryModal.work?.title || '未命名作品' }}」</p>
+        <div class="category-modal-select-wrap">
+          <label class="category-modal-label">选择分类</label>
+          <select
+            v-model="categoryModal.selectedCategory"
+            class="category-modal-select"
+          >
+            <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
         </div>
-        <div class="modal-actions">
+        <div class="modal-actions category-modal-actions">
+          <button type="button" class="btn btn-outline" @click="closeCategoryModal">取消</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="categoryModal.saving"
+            @click="confirmCategoryChange"
+          >
+            {{ categoryModal.saving ? '提交中...' : '确定' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" :class="{ active: scoreModal.show }" @click.self="scoreModal.show = false">
+      <div class="modal-content score-modal-content">
+        <h3 class="modal-title">评委评分</h3>
+        <p class="score-modal-work-title">「{{ scoreModal.title }}」</p>
+        <p class="score-modal-hint">评委对该作品打分，1–100 分</p>
+        <div class="score-input-wrap">
+          <div class="score-input-box">
+            <input
+              v-model.number="scoreModal.score"
+              type="number"
+              class="score-input"
+              min="1"
+              max="100"
+              placeholder="—"
+              @input="clampScore"
+            >
+            <span class="score-input-unit">分</span>
+          </div>
+          <input
+            v-model.number="scoreModal.score"
+            type="range"
+            class="score-slider"
+            min="1"
+            max="100"
+            step="1"
+            @input="clampScore"
+          >
+          <div class="score-quick">
+            <span class="score-quick-label">快捷</span>
+            <button
+              v-for="n in [60, 70, 80, 90, 100]"
+              :key="n"
+              type="button"
+              class="score-quick-btn"
+              :class="{ active: scoreModal.score === n }"
+              @click="scoreModal.score = n"
+            >{{ n }}</button>
+          </div>
+        </div>
+        <div class="modal-actions score-modal-actions">
           <button type="button" class="btn btn-outline" @click="scoreModal.show = false">取消</button>
-          <button type="button" class="btn btn-primary" :disabled="scoreModal.saving" @click="submitScore">{{ scoreModal.saving ? '提交中...' : '提交' }}</button>
+          <button type="button" class="btn btn-primary" :disabled="scoreModal.saving || isScoreInvalid(scoreModal.score)" @click="submitScore">
+            {{ scoreModal.saving ? '提交中...' : '提交' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 查看评分明细弹框 -->
+    <div class="modal modal-scores" :class="{ active: scoresModal.show }" @click.self="scoresModal.show = false">
+      <div class="modal-content modal-scores-content">
+        <button type="button" class="modal-close" aria-label="关闭" @click="scoresModal.show = false">×</button>
+        <h3 class="modal-title">评委评分 ({{ scoresModal.titleShort }})</h3>
+        <div v-if="scoresModal.loading" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+        <div v-else-if="scoresModal.error" class="voters-empty"><p>{{ scoresModal.error }}</p></div>
+        <div v-else-if="scoresModal.scores.length === 0" class="voters-empty"><div style="font-size:3rem;margin-bottom:1rem;">📋</div><p>暂无评委评分</p></div>
+        <div v-else class="scores-list-wrap">
+          <div class="voters-header">共 {{ scoresModal.scores.length }} 位评委评分</div>
+          <div class="scores-list-scroll">
+            <div v-for="(s, i) in scoresModal.scores" :key="i" class="score-item">
+              <div class="voter-index">{{ i + 1 }}</div>
+              <div class="score-info">
+                <div class="score-judge">{{ s.judgeEmail }}</div>
+                <div class="score-value">{{ s.score }} 分</div>
+                <div class="voter-time">{{ formatDate(s.createdAt) }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -94,29 +214,52 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import request from '../api/request';
-import { getWorks } from '../api/works';
-import { getMyScores, submitScore as apiSubmitScore } from '../api/judge';
+import WorkVideoPreview from '../components/WorkVideoPreview.vue';
+import WorkVideoModal from '../components/WorkVideoModal.vue';
+import { getJudgeWorks, submitScore as apiSubmitScore, getCategories as apiGetCategories, updateWorkCategory, getWorkJudgeScores } from '../api/judge';
 import { useAuth } from '../composables/useAuth';
 
 const router = useRouter();
-const { user, isJudge, checkAuth, logout } = useAuth();
+const { user, isJudge, isAdmin, checkAuth, logout } = useAuth();
+/** 允许进入作品评价页：评委或管理员 */
+const canAccessScore = computed(() => isJudge.value || isAdmin.value);
 
 const isJudgeReady = ref(false);
 const works = ref([]);
 const worksLoading = ref(true);
-const scoreMap = ref({});
+const categories = ref([]);
 const scoreModal = ref({ show: false, workId: null, title: '', score: null, saving: false });
+const categoryModal = reactive({
+  show: false,
+  work: null,
+  selectedCategory: '',
+  saving: false,
+});
+const scoresModal = reactive({ show: false, workId: null, titleShort: '', loading: false, error: '', scores: [] });
+const previewWork = ref(null);
+const videoModalOpen = ref(false);
 
 const sortedWorks = computed(() => {
-  const list = works.value.map((w) => ({
-    ...w,
-    myScore: scoreMap.value[w.id] != null ? scoreMap.value[w.id] : null,
-  }));
-  return list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return [...works.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 });
+
+const categoryOptions = computed(() => {
+  const list = Array.isArray(categories.value) ? categories.value : [];
+  return list.map((v) => ({ value: v, label: v === '' ? '未设置' : v }));
+});
+
+function formatJudgeScore(work) {
+  if (work.judgeScore != null && work.judgeCount != null && work.judgeCount > 0) {
+    const avg = Number(work.judgeScore);
+    if (!Number.isNaN(avg)) {
+      const text = avg % 1 === 0 ? String(Math.round(avg)) : avg.toFixed(1);
+      return work.judgeCount > 1 ? `${text} 分 (${work.judgeCount}人评)` : `${text} 分`;
+    }
+  }
+  return '未评';
+}
 
 function formatDate(ts) {
   if (!ts) return '-';
@@ -126,7 +269,7 @@ function formatDate(ts) {
 async function loadWorks() {
   worksLoading.value = true;
   try {
-    const res = await getWorks({ page: 1, limit: 1000 });
+    const res = await getJudgeWorks({ page: 1, limit: 1000 });
     if (res.success && Array.isArray(res.data?.items)) {
       works.value = res.data.items;
     } else {
@@ -139,17 +282,84 @@ async function loadWorks() {
   }
 }
 
-async function loadMyScores() {
+async function loadCategories() {
   try {
-    const res = await getMyScores();
-    if (res.success && Array.isArray(res.data?.scores)) {
-      const map = {};
-      res.data.scores.forEach((s) => { map[s.workId] = s.score; });
-      scoreMap.value = map;
+    const res = await apiGetCategories();
+    if (res.success && Array.isArray(res.data?.list)) {
+      categories.value = res.data.list;
+    } else {
+      categories.value = ['', '创意类', '技术类', '视觉类', '叙事类', '其他'];
     }
   } catch {
-    scoreMap.value = {};
+    categories.value = ['', '创意类', '技术类', '视觉类', '叙事类', '其他'];
   }
+}
+
+function openCategoryModal(work) {
+  if (!work) return;
+  categoryModal.work = work;
+  categoryModal.selectedCategory = work.category ?? '';
+  categoryModal.show = true;
+  categoryModal.saving = false;
+}
+
+function closeCategoryModal() {
+  categoryModal.show = false;
+  categoryModal.work = null;
+  categoryModal.selectedCategory = '';
+}
+
+async function confirmCategoryChange() {
+  if (!categoryModal.work || categoryModal.saving) return;
+  categoryModal.saving = true;
+  try {
+    const res = await updateWorkCategory(categoryModal.work.id, categoryModal.selectedCategory);
+    if (res.success) {
+      const w = works.value.find((x) => x.id === categoryModal.work.id);
+      if (w) w.category = categoryModal.selectedCategory === '' ? null : categoryModal.selectedCategory;
+      closeCategoryModal();
+    } else {
+      alert(res.error?.message || '修改失败');
+    }
+  } catch {
+    alert('修改失败，请重试');
+  } finally {
+    categoryModal.saving = false;
+  }
+}
+
+function openVideoPreview(work) {
+  if (!work?.fileUrl) return;
+  previewWork.value = work;
+  videoModalOpen.value = true;
+}
+
+function closeVideoModal() {
+  previewWork.value = null;
+  videoModalOpen.value = false;
+}
+
+function showScores(work) {
+  scoresModal.workId = work.id;
+  scoresModal.titleShort = (work.title || '未命名').length > 30 ? (work.title || '未命名').slice(0, 30) + '...' : (work.title || '未命名');
+  scoresModal.show = true;
+  scoresModal.loading = true;
+  scoresModal.error = '';
+  scoresModal.scores = [];
+  getWorkJudgeScores(work.id)
+    .then((res) => {
+      if (res.success && res.data?.scores) {
+        scoresModal.scores = res.data.scores;
+      } else {
+        scoresModal.error = '加载失败，请重试';
+      }
+    })
+    .catch(() => {
+      scoresModal.error = '加载失败，请重试';
+    })
+    .finally(() => {
+      scoresModal.loading = false;
+    });
 }
 
 function openScoreModal(work) {
@@ -160,6 +370,24 @@ function openScoreModal(work) {
     score: work.myScore != null ? work.myScore : null,
     saving: false,
   };
+}
+
+function isScoreInvalid(score) {
+  if (score == null || score === '') return true;
+  const n = Number(score);
+  return Number.isNaN(n) || n < 1 || n > 100;
+}
+
+function clampScore() {
+  const s = scoreModal.value.score;
+  if (s == null || s === '') return;
+  let n = Number(s);
+  if (Number.isNaN(n)) {
+    scoreModal.value.score = null;
+    return;
+  }
+  n = Math.round(Math.max(1, Math.min(100, n)));
+  scoreModal.value.score = n;
 }
 
 async function submitScore() {
@@ -175,8 +403,8 @@ async function submitScore() {
   try {
     const res = await apiSubmitScore(workId, s);
     if (res.success) {
-      scoreMap.value = { ...scoreMap.value, [workId]: s };
       scoreModal.value.show = false;
+      await loadWorks();
     } else {
       alert(res.error?.message || '提交失败');
     }
@@ -194,9 +422,8 @@ async function handleLogout() {
 onMounted(async () => {
   await checkAuth();
   isJudgeReady.value = true;
-  if (!isJudge.value) return;
-  await loadWorks();
-  await loadMyScores();
+  if (!canAccessScore.value) return;
+  await Promise.all([loadWorks(), loadCategories()]);
 });
 </script>
 
@@ -217,6 +444,202 @@ onMounted(async () => {
 .container-wrapper {
   display: block;
 }
+
+/* 评分页主内容区拉宽，与首页/管理页一致 */
+.score-page .container {
+  max-width: 1400px;
+  padding: 2rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+.score-page .works-table-container {
+  width: 100%;
+}
+
+/* 小屏：卡片展示 */
+.score-works-cards {
+  display: none;
+}
+.score-works-table {
+  display: table;
+}
+@media (max-width: 768px) {
+  .score-page .works-table-container .score-works-table {
+    display: none;
+  }
+  .score-page .score-works-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+@media (min-width: 769px) {
+  .score-page .score-works-cards {
+    display: none !important;
+  }
+}
+.score-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+.score-card-my {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+.score-card-category {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+.score-card-category-value {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.score-card-actions {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.score-card-actions .btn {
+  flex: 1;
+  min-width: 80px;
+  justify-content: center;
+}
+.score-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 修改分类按钮：与评分按钮区分，更易识别 */
+.btn-category {
+  font-weight: 600;
+  color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 10px;
+  transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.btn-category:hover {
+  color: var(--primary-dark);
+  background: rgba(37, 99, 235, 0.14);
+  border-color: var(--primary-light);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+}
+.btn-category:active {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+/* 修改分类弹框 */
+.category-modal .modal-content {
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+.category-modal-content {
+  position: relative;
+  padding: 1.5rem 1.75rem;
+  max-width: 380px;
+  width: 100%;
+}
+.category-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s;
+}
+.category-modal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+.category-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+.category-modal-work {
+  font-size: 0.9375rem;
+  color: var(--primary-color);
+  font-weight: 600;
+  margin: 0 0 1.25rem;
+  word-break: break-word;
+}
+.category-modal-select-wrap {
+  margin-bottom: 1.5rem;
+}
+.category-modal-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+.category-modal-select {
+  width: 100%;
+  padding: 0.6rem 2.25rem 0.6rem 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 4.5 L6 7.5 L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.category-modal-select:hover {
+  border-color: var(--primary-light);
+}
+.category-modal-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.category-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0;
+}
+.work-category {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.work-judge-score {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.score-card-judge {
+  font-weight: 600;
+  color: var(--text-primary);
+}
 .work-my-score {
   font-weight: 600;
   color: var(--primary-color);
@@ -225,26 +648,145 @@ onMounted(async () => {
   padding: 0.35rem 0.75rem;
   font-size: 0.875rem;
 }
-.score-input-group {
+
+/* 评分弹框 */
+.score-modal-content {
+  max-width: 400px;
+  padding: 1.75rem;
+}
+.score-modal-content .modal-title {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+.score-modal-work-title {
+  font-size: 1rem;
+  color: var(--primary-color);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  word-break: break-all;
+}
+.score-modal-hint {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
   margin-bottom: 1.25rem;
 }
-.score-input-group .config-input {
-  width: 100%;
-  max-width: 120px;
-  font-size: 1.125rem;
-  text-align: center;
+.score-input-wrap {
+  margin-bottom: 1.5rem;
 }
-.modal-content-sm {
-  max-width: 420px;
-}
-.modal-content-sm .modal-title {
-  margin-bottom: 0.5rem;
-}
-.modal-content-sm .modal-message {
+.score-input-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
   margin-bottom: 1rem;
-  font-size: 0.9375rem;
 }
-.modal-content-sm .modal-actions {
+.score-input {
+  width: 5rem;
+  height: 3rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--primary-color);
+  background: var(--bg-secondary);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.score-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+.score-input:hover {
+  border-color: var(--primary-light);
+}
+.score-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+.score-input-unit {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.score-slider {
+  width: 100%;
+  height: 8px;
+  margin-bottom: 1rem;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border-color);
+  border-radius: 4px;
+}
+.score-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gradient);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+  transition: transform 0.15s;
+}
+.score-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+.score-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--gradient);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+.score-quick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.score-quick-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-right: 0.25rem;
+}
+.score-quick-btn {
+  min-width: 2.5rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.score-quick-btn:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-light);
+  background: var(--gradient-light);
+}
+.score-quick-btn.active {
+  color: white;
+  border-color: var(--primary-color);
+  background: var(--gradient);
+}
+.score-modal-actions {
   justify-content: flex-end;
+  gap: 0.75rem;
 }
+
+/* 查看评分明细弹框 */
+.modal-scores .modal-content { max-width: 600px; }
+.modal-scores .scores-list-wrap { display: flex; flex-direction: column; min-height: 0; }
+.modal-scores .scores-list-scroll { max-height: min(400px, 60vh); overflow-y: auto; }
+.modal-scores .score-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+.modal-scores .score-item:last-child { border-bottom: none; }
+.modal-scores .score-info { flex: 1; min-width: 0; }
+.modal-scores .score-judge { font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
+.modal-scores .score-value { font-weight: 700; color: var(--primary-color); font-size: 1.125rem; margin-bottom: 0.25rem; }
 </style>
