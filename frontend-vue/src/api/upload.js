@@ -1,6 +1,16 @@
 import request from './request';
 
-/** 上传作品（FormData: file, title） */
+/** 获取 STS 临时凭证（前端直传 OSS 用） */
+export function getStsCredentials() {
+  return request.get('/api/upload/sts-credentials').then((res) => res.data);
+}
+
+/** 前端直传 OSS 完成后上报作品信息 */
+export function completeUpload(body) {
+  return request.post('/api/upload/complete', body).then((res) => res.data);
+}
+
+/** 上传作品（FormData：经后端中转，无 STS 时回退使用） */
 export function uploadWork(formData) {
   return request.post('/api/upload', formData).then((res) => res.data);
 }

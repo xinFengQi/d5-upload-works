@@ -11,6 +11,22 @@ const { createSuccessResponse, createErrorResponse, sendJson } = require('../uti
 const SESSION_TTL_SEC = 7 * 24 * 60 * 60; // 7 天
 const STATE_TTL_SEC = 600; // 10 分钟
 
+/** 仅允许重定向到配置的白名单 origin，防止开放重定向 + token 泄露 */
+function resolveRedirectOrigin(req) {
+  const fallback = `${req.protocol}://${req.get('host')}`;
+  const raw = req.query.frontend_origin;
+  if (!raw || typeof raw !== 'string') return fallback;
+  const candidate = raw.trim();
+  if (!/^https?:\/\/[^/]+$/.test(candidate)) return fallback;
+  const allowed = (req.app.locals.config?.ALLOWED_REDIRECT_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowed.length === 0) return fallback;
+  if (allowed.includes(candidate.toLowerCase())) return candidate;
+  return fallback;
+}
+
 function isDevelopment(config, req) {
   if (config.ENVIRONMENT) {
     return ['development', 'dev'].includes(String(config.ENVIRONMENT).toLowerCase());
@@ -108,10 +124,7 @@ router.get('/callback', async (req, res) => {
       'INSERT OR REPLACE INTO sessions (token, userid, expires_at, created_at) VALUES (?, ?, ?, ?)'
     ).run(token, userInfo.userid, expiresAt, now);
 
-    const frontendOrigin = req.query.frontend_origin;
-    const baseOrigin = frontendOrigin && /^https?:\/\/[^/]+$/.test(frontendOrigin)
-      ? frontendOrigin
-      : `${req.protocol}://${req.get('host')}`;
+    const baseOrigin = resolveRedirectOrigin(req);
     const redirectUrl = new URL('/', baseOrigin);
     redirectUrl.searchParams.set('token', token);
     res.redirect(302, redirectUrl.toString());

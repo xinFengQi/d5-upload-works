@@ -21,11 +21,15 @@ app.locals.config = {
   ALIYUN_OSS_ACCESS_KEY_SECRET: process.env.ALIYUN_OSS_ACCESS_KEY_SECRET,
   ALIYUN_OSS_REGION: process.env.ALIYUN_OSS_REGION,
   ALIYUN_OSS_BUCKET: process.env.ALIYUN_OSS_BUCKET,
+  /** RAM 角色 ARN，用于 STS 临时凭证（前端直传 OSS）。格式：acs:ram::账号ID:role/角色名 */
+  ALIYUN_RAM_ROLE_ARN: process.env.ALIYUN_RAM_ROLE_ARN || '',
   DINGTALK_APP_KEY: process.env.DINGTALK_APP_KEY,
   DINGTALK_APP_SECRET: process.env.DINGTALK_APP_SECRET,
   DINGTALK_REDIRECT_URI: process.env.DINGTALK_REDIRECT_URI,
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
   ENVIRONMENT: process.env.ENVIRONMENT,
+  /** 允许的回调重定向域名，逗号分隔，如 https://localhost:5173,https://your-app.com；不设则仅用当前请求 host */
+  ALLOWED_REDIRECT_ORIGINS: process.env.ALLOWED_REDIRECT_ORIGINS || '',
 };
 
 // 静态资源最先：/css/common.css、/index.html 等直接由静态中间件返回，避免被其它中间件影响

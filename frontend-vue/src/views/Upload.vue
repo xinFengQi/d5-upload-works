@@ -32,6 +32,18 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">作品描述 <span class="text-muted">(最多500字)</span></label>
+            <textarea
+              v-model="description"
+              class="form-input form-textarea"
+              placeholder="请输入作品描述（选填）"
+              maxlength="500"
+              rows="4"
+            ></textarea>
+            <div class="form-hint">剩余 {{ 500 - description.length }} 字</div>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">创作者名称</label>
             <input
               type="text"
@@ -96,8 +108,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import OSS from 'ali-oss';
 import { useAuth } from '../composables/useAuth';
-import { uploadWork } from '../api/upload';
+import { getStsCredentials, completeUpload, uploadWork } from '../api/upload';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
@@ -106,6 +119,7 @@ const router = useRouter();
 const { user, token, checkAuth } = useAuth();
 
 const title = ref('');
+const description = ref('');
 const selectedFile = ref(null);
 const uploading = ref(false);
 const isDragging = ref(false);
@@ -173,6 +187,74 @@ function closeToast() {
   if (toast.type === 'success') router.push('/');
 }
 
+function randomId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+/** 直传结果：success 时 data 为完成接口返回值；失败时 reason 为原因，fallback 表示是否可回退到经后端上传 */
+async function submitWithDirectUpload(file, t2, desc) {
+  let stsRes;
+  try {
+    stsRes = await getStsCredentials();
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.message || '获取直传凭证请求异常';
+    console.error('[STS 直传失败] 获取凭证请求异常：', msg, err.response?.data ?? err);
+    return { success: false, reason: msg, fallback: true };
+  }
+  if (!stsRes.success || !stsRes.data) {
+    const reason = stsRes.error?.message || stsRes.error?.code || '无法获取直传凭证';
+    console.warn('[STS 直传失败] 凭证不可用，将改为经服务器上传。原因：', reason);
+    return { success: false, reason, fallback: true };
+  }
+  const { region, bucket, accessKeyId, accessKeySecret, stsToken } = stsRes.data;
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  const objectKey = `works/${user.value.userid}/${Date.now()}_${randomId()}.${ext}`;
+  const client = new OSS({
+    region,
+    bucket,
+    accessKeyId,
+    accessKeySecret,
+    stsToken,
+  });
+  const size = file.size;
+  try {
+    if (size > 5 * 1024 * 1024) {
+      await client.multipartUpload(objectKey, file, {
+        partSize: 5 * 1024 * 1024,
+        progress: (p) => { /* 可在此更新进度 UI */ },
+      });
+    } else {
+      await client.put(objectKey, file, { headers: { 'Content-Type': file.type } });
+    }
+  } catch (err) {
+    const msg = err.message || err.code || '上传到 OSS 失败';
+    console.error('[STS 直传失败] 上传到 OSS 失败：', msg, err);
+    return { success: false, reason: `OSS 上传失败：${msg}`, fallback: false };
+  }
+  const fileUrl = `https://${bucket}.${region}.aliyuncs.com/${objectKey}`;
+  let completeRes;
+  try {
+    completeRes = await completeUpload({
+      title: t2,
+      description: desc || undefined,
+      fileUrl,
+      fileName: objectKey,
+      fileSize: size,
+      fileType: file.type,
+    });
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.message || '上报作品信息失败';
+    console.error('[STS 直传失败] 上报作品信息失败：', msg, err.response?.data ?? err);
+    return { success: false, reason: `保存作品失败：${msg}`, fallback: false };
+  }
+  if (!completeRes.success) {
+    const reason = completeRes.error?.message || completeRes.error?.code || '保存作品失败';
+    console.error('[STS 直传失败] 保存作品接口返回失败：', reason, completeRes.error);
+    return { success: false, reason, fallback: false };
+  }
+  return { success: true, data: completeRes };
+}
+
 async function onSubmit() {
   const t = token.value;
   if (!t) {
@@ -184,19 +266,37 @@ async function onSubmit() {
     showError('请输入作品标题');
     return;
   }
-  if (!selectedFile.value) {
+  const file = selectedFile.value;
+  if (!file) {
     showError('请选择要上传的视频文件');
     return;
   }
   uploading.value = true;
   try {
-    const fd = new FormData();
-    fd.append('file', selectedFile.value);
-    fd.append('title', t2);
-    const res = await uploadWork(fd);
+    const desc = description.value.trim() || undefined;
+    const directResult = await submitWithDirectUpload(file, t2, desc);
+    let res;
+    let usedFallback = false;
+    if (directResult.success) {
+      res = directResult.data;
+    } else if (directResult.fallback) {
+      console.warn('[STS 直传] 已改为经服务器上传。失败原因：', directResult.reason);
+      usedFallback = true;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('title', t2);
+      if (desc) fd.append('description', desc);
+      res = await uploadWork(fd);
+    } else {
+      showError(`直传失败：${directResult.reason}`);
+      return;
+    }
     if (res.success) {
-      showSuccess('上传成功！3秒后自动跳转到投票页面');
+      showSuccess(usedFallback
+        ? '上传成功！（直传不可用，本次经服务器中转。原因见控制台）'
+        : '上传成功！3秒后自动跳转到投票页面');
       title.value = '';
+      description.value = '';
       selectedFile.value = null;
     } else {
       const msg = res.error?.message || '上传失败，请重试';
@@ -205,6 +305,7 @@ async function onSubmit() {
     }
   } catch (err) {
     const msg = err.response?.data?.error?.message || err.message || '上传失败，请检查网络连接后重试';
+    console.error('[上传失败]', msg, err.response?.data ?? err);
     showError(msg);
   } finally {
     uploading.value = false;
@@ -224,6 +325,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.form-textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+}
 .loading { display: none; text-align: center; padding: 2rem; }
 .loading.active { display: block; }
 .toast-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 2rem; }
