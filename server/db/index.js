@@ -44,6 +44,11 @@ function initSchema(db) {
         db.exec('ALTER TABLE screen_config ADD COLUMN judges_json TEXT');
         db.prepare('UPDATE screen_config SET judges_json = ? WHERE judges_json IS NULL').run('[]');
       }
+      for (const col of ['vote_open_start', 'vote_open_end', 'score_open_start', 'score_open_end']) {
+        if (!hasColumn(db, 'screen_config', col)) {
+          db.exec(`ALTER TABLE screen_config ADD COLUMN ${col} INTEGER`);
+        }
+      }
     }
     const hasWorks = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='works'").get();
     if (hasWorks && !hasColumn(db, 'works', 'category')) {

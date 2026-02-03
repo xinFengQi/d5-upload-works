@@ -132,6 +132,43 @@
           <div class="config-card">
             <div class="config-content">
               <div class="config-header-inline">
+                <h2 class="config-title">投票与评分开放时间</h2>
+                <p class="config-subtitle">设置后可限制仅在时间段内开放投票/评分，留空表示不限制</p>
+              </div>
+              <div class="config-open-time-rows">
+                <div class="config-open-time-row">
+                  <span class="config-open-time-label">投票开放</span>
+                  <div class="config-form-group">
+                    <label class="config-label">开始时间</label>
+                    <input v-model="voteOpenStartInput" type="datetime-local" class="config-input">
+                  </div>
+                  <div class="config-form-group">
+                    <label class="config-label">结束时间</label>
+                    <input v-model="voteOpenEndInput" type="datetime-local" class="config-input">
+                  </div>
+                </div>
+                <div class="config-open-time-row">
+                  <span class="config-open-time-label">评分开放</span>
+                  <div class="config-form-group">
+                    <label class="config-label">开始时间</label>
+                    <input v-model="scoreOpenStartInput" type="datetime-local" class="config-input">
+                  </div>
+                  <div class="config-form-group">
+                    <label class="config-label">结束时间</label>
+                    <input v-model="scoreOpenEndInput" type="datetime-local" class="config-input">
+                  </div>
+                </div>
+              </div>
+              <div class="config-actions">
+                <button type="button" class="btn btn-primary" @click="saveOpenTimeConfig">保存开放时间</button>
+              </div>
+            </div>
+            <div v-if="openTimeMessage" class="config-message">{{ openTimeMessage }}</div>
+          </div>
+
+          <div class="config-card">
+            <div class="config-content">
+              <div class="config-header-inline">
                 <h2 class="config-title">每人最多投票数</h2>
                 <p class="config-subtitle">限制每个用户最多可投多少票（1–100）</p>
               </div>
@@ -163,6 +200,7 @@
                   <button type="button" class="btn btn-judge-remove" :disabled="judgesSaving" @click="showJudgeDeleteConfirm(i, email)" title="删除评委">删除</button>
                 </li>
               </ul>
+              <p v-if="judges.length > 0" class="judges-count">共 {{ judges.length }} 位评委</p>
             </div>
             <div v-if="judgesMessage" class="config-message">{{ judgesMessage }}</div>
           </div>
@@ -332,6 +370,11 @@ const themeFields = [
 ];
 const themeMessage = ref('');
 const configMessage = ref('');
+const voteOpenStartInput = ref('');
+const voteOpenEndInput = ref('');
+const scoreOpenStartInput = ref('');
+const scoreOpenEndInput = ref('');
+const openTimeMessage = ref('');
 const toast = reactive({ show: false, type: 'success', icon: '✓', message: '' });
 const deleteModal = reactive({ show: false, id: null, title: '', loading: false });
 const votersModal = reactive({ show: false, workId: null, titleShort: '', loading: false, error: '', voters: [] });
@@ -430,6 +473,23 @@ async function loadWorksList() {
   }
 }
 
+function tsToDatetimeLocal(ts) {
+  if (ts == null || ts === '') return '';
+  const d = new Date(Number(ts));
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
+function datetimeLocalToTs(s) {
+  if (s == null || String(s).trim() === '') return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
 async function loadScreenConfigData() {
   try {
     const res = await getScreenConfig();
@@ -437,6 +497,10 @@ async function loadScreenConfigData() {
       gridLayout.value = res.data.gridLayout || '2x2';
       maxVotesPerUser.value = res.data.maxVotesPerUser != null ? Number(res.data.maxVotesPerUser) : 1;
       judges.value = Array.isArray(res.data.judges) ? [...res.data.judges] : [];
+      voteOpenStartInput.value = tsToDatetimeLocal(res.data.voteOpenStart);
+      voteOpenEndInput.value = tsToDatetimeLocal(res.data.voteOpenEnd);
+      scoreOpenStartInput.value = tsToDatetimeLocal(res.data.scoreOpenStart);
+      scoreOpenEndInput.value = tsToDatetimeLocal(res.data.scoreOpenEnd);
       const t = res.data.theme;
       if (t) {
         if (t.primaryColor) theme.primaryColor = t.primaryColor;
@@ -447,6 +511,39 @@ async function loadScreenConfigData() {
       }
     }
   } catch {}
+}
+
+function saveOpenTimeConfig() {
+  const vs = datetimeLocalToTs(voteOpenStartInput.value);
+  const ve = datetimeLocalToTs(voteOpenEndInput.value);
+  const ss = datetimeLocalToTs(scoreOpenStartInput.value);
+  const se = datetimeLocalToTs(scoreOpenEndInput.value);
+  if (vs != null && ve != null && vs > ve) {
+    showToast('投票开始时间不能晚于结束时间', 'error');
+    return;
+  }
+  if (ss != null && se != null && ss > se) {
+    showToast('评分开始时间不能晚于结束时间', 'error');
+    return;
+  }
+  openTimeMessage.value = '';
+  apiSaveScreenConfig({
+    voteOpenStart: vs,
+    voteOpenEnd: ve,
+    scoreOpenStart: ss,
+    scoreOpenEnd: se,
+  })
+    .then((res) => {
+      if (res.success) {
+        openTimeMessage.value = '已保存';
+        showToast('开放时间已保存', 'success');
+      } else {
+        openTimeMessage.value = res.error?.message || '保存失败';
+      }
+    })
+    .catch(() => {
+      openTimeMessage.value = '保存失败，请重试';
+    });
 }
 
 function isEmail(s) {
@@ -756,10 +853,53 @@ onMounted(async () => {
   border-radius: 0.5rem;
   font-size: 1rem;
 }
+@media (max-width: 768px) {
+  .admin-page .config-input {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
 .config-input:focus {
   outline: none;
   border-color: var(--primary-color);
 }
+
+.config-open-time-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+.config-open-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+}
+.config-open-time-label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  min-width: 5rem;
+  padding-bottom: 0.25rem;
+}
+.config-open-time-row .config-form-group {
+  flex: 1;
+  min-width: 180px;
+}
+@media (max-width: 768px) {
+  .config-open-time-row .config-form-group {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 .judges-add {
   display: flex;
   gap: 0.5rem;
@@ -777,7 +917,7 @@ onMounted(async () => {
 .judges-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 1rem;
+  margin: 0 0 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -786,13 +926,22 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
   background: var(--bg-secondary);
   border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 .judges-email {
   font-size: 0.9375rem;
   color: var(--text-primary);
+  word-break: break-all;
+}
+.judges-count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 .btn-judge-remove {
   flex-shrink: 0;

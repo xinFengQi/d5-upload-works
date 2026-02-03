@@ -40,11 +40,21 @@ router.post('/score', requireJudge, (req, res) => {
   score = Math.round(score);
   const judgeEmail = req.judgeEmail;
   const db = getDb();
+  // 评分开放时间仅在接口层校验，不限制页面访问
+  const configRow = db.prepare('SELECT score_open_start, score_open_end FROM screen_config WHERE id = 1').get();
+  const scoreStart = configRow?.score_open_start != null ? Number(configRow.score_open_start) : null;
+  const scoreEnd = configRow?.score_open_end != null ? Number(configRow.score_open_end) : null;
+  const now = Date.now();
+  if (scoreStart != null && now < scoreStart) {
+    return sendJson(res, createErrorResponse('当前不在评分开放时间内', 'SCORE_NOT_OPEN', 403));
+  }
+  if (scoreEnd != null && now > scoreEnd) {
+    return sendJson(res, createErrorResponse('当前不在评分开放时间内', 'SCORE_NOT_OPEN', 403));
+  }
   const work = db.prepare('SELECT id FROM works WHERE id = ?').get(workId);
   if (!work) {
     return sendJson(res, createErrorResponse('Work not found', 'WORK_NOT_FOUND', 404));
   }
-  const now = Date.now();
   db.prepare(
     'INSERT INTO judge_scores (work_id, judge_email, score, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(work_id, judge_email) DO UPDATE SET score = ?, created_at = ?'
   ).run(workId, judgeEmail, score, now, score, now);

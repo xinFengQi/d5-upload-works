@@ -71,10 +71,11 @@
                 <button
                   type="button"
                   :class="['vote-btn', w.hasVoted && 'voted', w.isOwner && 'own-work']"
-                  :disabled="w.hasVoted || w.isOwner || (userVoteCount >= maxVotesPerUser && !w.hasVoted && !w.isOwner)"
+                  :disabled="w.hasVoted || w.isOwner || !isVoteOpen"
+                  :title="!isVoteOpen ? voteClosedTip : undefined"
                   @click.stop="handleVote(w)"
                 >
-                  {{ w.hasVoted ? '已投票' : w.isOwner ? '自己的作品' : '投票' }}
+                  {{ w.hasVoted ? '已投票' : w.isOwner ? '自己的作品' : !isVoteOpen ? '未开放' : '投票' }}
                 </button>
               </div>
             </div>
@@ -91,12 +92,21 @@
 
     <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
 
+    <div class="tip-modal" :class="{ active: tipModal.show }" @click.self="closeTipModal">
+      <div class="tip-modal-content">
+        <div class="tip-modal-icon" :class="tipModal.type">{{ tipModal.icon }}</div>
+        <h3 class="tip-modal-title">{{ tipModal.title }}</h3>
+        <p class="tip-modal-message">{{ tipModal.message }}</p>
+        <button type="button" class="tip-modal-btn" @click="closeTipModal">确定</button>
+      </div>
+    </div>
+
     <router-link to="/upload" class="fab" title="上传作品">+</router-link>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, reactive, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import WorkVideoPreview from '../components/WorkVideoPreview.vue';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
@@ -113,8 +123,28 @@ const { user, isLoggedIn, isAdmin, isJudge, setToken, checkAuth, logout } = useA
 const loading = ref(true);
 const works = ref([]);
 const userVoteCount = ref(0);
-/** 每人最多投票数（从管理员配置读取，默认 1） */
-const maxVotesPerUser = ref(1);
+/** 投票开放时间（时间戳 ms），null 表示不限制 */
+const voteOpenStart = ref(null);
+const voteOpenEnd = ref(null);
+/** 当前是否在投票开放时间内 */
+const isVoteOpen = computed(() => {
+  const now = Date.now();
+  const start = voteOpenStart.value;
+  const end = voteOpenEnd.value;
+  if (start == null && end == null) return true;
+  if (start != null && now < start) return false;
+  if (end != null && now > end) return false;
+  return true;
+});
+/** 投票未开放时的提示文案 */
+const voteClosedTip = computed(() => {
+  const now = Date.now();
+  const start = voteOpenStart.value;
+  const end = voteOpenEnd.value;
+  if (start != null && now < start) return `投票将于 ${new Date(start).toLocaleString('zh-CN')} 开始`;
+  if (end != null && now > end) return '投票已结束';
+  return '';
+});
 const showUserDropdown = ref(false);
 const showSideUserDropdown = ref(false);
 const sideMenuOpen = ref(false);
@@ -134,13 +164,25 @@ function applyTheme(theme) {
   root.style.setProperty('--gradient', `linear-gradient(135deg, ${pd} 0%, ${pc} 100%)`);
 }
 
+const tipModal = reactive({ show: false, type: 'info', icon: 'ℹ️', title: '提示', message: '' });
+function showTipModal(message, type = 'info', title = '提示') {
+  tipModal.message = message;
+  tipModal.type = type;
+  tipModal.title = title;
+  tipModal.icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+  tipModal.show = true;
+}
+function closeTipModal() {
+  tipModal.show = false;
+}
+
 async function loadTheme() {
   try {
     const res = await getScreenConfig();
     if (res.success && res.data) {
       if (res.data.theme) applyTheme(res.data.theme);
-      const n = res.data.maxVotesPerUser != null ? Number(res.data.maxVotesPerUser) : 1;
-      maxVotesPerUser.value = Math.min(100, Math.max(1, n));
+      voteOpenStart.value = res.data.voteOpenStart != null ? Number(res.data.voteOpenStart) : null;
+      voteOpenEnd.value = res.data.voteOpenEnd != null ? Number(res.data.voteOpenEnd) : null;
     }
   } catch {}
 }
@@ -235,13 +277,13 @@ function closeVideoModal() {
 
 async function handleVote(w) {
   if (w.hasVoted || w.isOwner) return;
+  if (!isVoteOpen.value) {
+    showTipModal(voteClosedTip.value || '当前不在投票开放时间内', 'info', '投票未开放');
+    return;
+  }
   const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
   if (!token) {
     if (confirm('请先登录才能投票，是否前往登录页面？')) router.push({ name: 'Login' });
-    return;
-  }
-  if (userVoteCount.value >= maxVotesPerUser.value) {
-    alert(`您已经投了 ${maxVotesPerUser.value} 票，每人最多可投 ${maxVotesPerUser.value} 票`);
     return;
   }
   try {
@@ -250,10 +292,10 @@ async function handleVote(w) {
       userVoteCount.value++;
       await loadWorks();
     } else {
-      alert(res.error?.message || '投票失败');
+      showTipModal(res.error?.message || '投票失败', 'error', '投票失败');
     }
   } catch {
-    alert('投票失败，请重试');
+    showTipModal('投票失败，请重试', 'error', '投票失败');
   }
 }
 
@@ -299,3 +341,18 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.tip-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 2rem; }
+.tip-modal.active { display: flex; }
+.tip-modal-content { background: white; border-radius: 1rem; padding: 2rem; max-width: 400px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; animation: tipSlideUp 0.3s ease-out; }
+@keyframes tipSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.tip-modal-icon { font-size: 3rem; margin-bottom: 1rem; }
+.tip-modal-icon.success { color: #10b981; }
+.tip-modal-icon.error { color: #ef4444; }
+.tip-modal-icon.info { color: var(--primary-color, #2563eb); }
+.tip-modal-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: #1f2937; }
+.tip-modal-message { color: #6b7280; font-size: 0.875rem; margin-bottom: 1.5rem; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+.tip-modal-btn { width: 100%; padding: 0.75rem; border-radius: 0.5rem; font-weight: 600; font-size: 1rem; border: none; cursor: pointer; transition: all 0.2s ease; background: var(--gradient, linear-gradient(135deg, #1e40af 0%, #2563eb 100%)); color: white; }
+.tip-modal-btn:hover { opacity: 0.95; transform: translateY(-1px); }
+</style>

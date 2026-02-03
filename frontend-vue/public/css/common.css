@@ -908,6 +908,9 @@ body.screen-full {
 /* ========== 管理员页 ========== */
 body.admin-page {
   background: var(--bg-primary);
+  min-height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .page-header {
@@ -1080,6 +1083,13 @@ body.admin-page {
   gap: 1.5rem;
   justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+/* 管理员配置：标题描述与配置分行展示 */
+.admin-page .tab-panel .config-content {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
 }
 
 .config-form-group {
@@ -1403,6 +1413,37 @@ body.admin-page {
   .admin-page .config-select {
     width: 100%;
     min-width: unset;
+  }
+  /* 配置区手机端：标题与说明换行，避免溢出 */
+  .admin-page .config-header-inline {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .admin-page .config-title {
+    white-space: normal;
+    flex: 1 1 100%;
+  }
+  .admin-page .config-subtitle {
+    white-space: normal;
+    flex: 1 1 100%;
+    word-break: break-word;
+    line-height: 1.45;
+  }
+  .admin-page .config-form-group {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .admin-page .config-form-group .config-input {
+    min-width: 0;
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+  .admin-page .judges-add {
+    width: 100%;
+  }
+  .admin-page .judges-add .config-input {
+    flex: 1;
+    min-width: 0;
   }
 }
 

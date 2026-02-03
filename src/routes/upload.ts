@@ -90,10 +90,10 @@ export async function handleUploadRoutes(
         );
       }
 
-      // 4. 验证文件大小（100MB）
-      const maxSize = 100 * 1024 * 1024; // 100MB
+      // 4. 验证文件大小（1GB）
+      const maxSize = 1024 * 1024 * 1024; // 1GB
       if (file.size > maxSize) {
-        return createErrorResponse('File size exceeds 100MB', 'FILE_TOO_LARGE', 400);
+        return createErrorResponse('File size exceeds 1GB', 'FILE_TOO_LARGE', 400);
       }
 
       // 5. 检查标题是否重复

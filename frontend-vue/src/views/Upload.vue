@@ -67,7 +67,7 @@
             >
               <div class="upload-icon">📁</div>
               <div class="upload-text">点击选择文件或拖拽文件到此处</div>
-              <div class="upload-hint">支持格式：mp4, mov, avi | 最大 100MB</div>
+              <div class="upload-hint">支持格式：mp4, mov, avi | 最大 1GB</div>
               <input
                 ref="fileInputRef"
                 type="file"
@@ -112,7 +112,7 @@ import OSS from 'ali-oss';
 import { useAuth } from '../composables/useAuth';
 import { getStsCredentials, completeUpload, uploadWork } from '../api/upload';
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
 
 const router = useRouter();
@@ -143,7 +143,7 @@ function validateFile(file) {
     return false;
   }
   if (file.size > MAX_FILE_SIZE) {
-    showError('文件大小超过 100MB，请选择较小的文件');
+    showError('文件大小超过 1GB，请选择较小的文件');
     return false;
   }
   return true;

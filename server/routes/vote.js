@@ -7,9 +7,7 @@ const { getDb } = require('../db');
 const { createSuccessResponse, createErrorResponse, sendJson } = require('../utils/response');
 const { getSessionUser } = require('../middleware/auth');
 
-const DEFAULT_MAX_VOTES_PER_USER = 1;
-
-// 投票
+// 投票（仅校验开放时间，不限制每人投票数量）
 router.post('/', (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -21,6 +19,17 @@ router.post('/', (req, res) => {
   }
 
   const db = getDb();
+  const configRow = db.prepare('SELECT vote_open_start, vote_open_end FROM screen_config WHERE id = 1').get();
+  const voteStart = configRow?.vote_open_start != null ? Number(configRow.vote_open_start) : null;
+  const voteEnd = configRow?.vote_open_end != null ? Number(configRow.vote_open_end) : null;
+  const now = Date.now();
+  if (voteStart != null && now < voteStart) {
+    return sendJson(res, createErrorResponse('当前不在投票开放时间内', 'VOTE_NOT_OPEN', 403));
+  }
+  if (voteEnd != null && now > voteEnd) {
+    return sendJson(res, createErrorResponse('当前不在投票开放时间内', 'VOTE_NOT_OPEN', 403));
+  }
+
   const work = db.prepare('SELECT id, userid FROM works WHERE id = ?').get(workId);
   if (!work) {
     return sendJson(res, createErrorResponse('Work not found', 'WORK_NOT_FOUND', 404));
@@ -34,14 +43,6 @@ router.post('/', (req, res) => {
     return sendJson(res, createErrorResponse('Already voted', 'ALREADY_VOTED', 400));
   }
 
-  const configRow = db.prepare('SELECT max_votes_per_user FROM screen_config WHERE id = 1').get();
-  const maxVotes = (configRow?.max_votes_per_user != null && configRow.max_votes_per_user !== '') ? Number(configRow.max_votes_per_user) : DEFAULT_MAX_VOTES_PER_USER;
-  const userVoteCount = db.prepare('SELECT COUNT(*) AS c FROM votes WHERE user_id = ?').get(user.userid).c;
-  if (userVoteCount >= maxVotes) {
-    return sendJson(res, createErrorResponse(`已达到每人最多投票数（${maxVotes}）`, 'MAX_VOTES_REACHED', 400));
-  }
-
-  const now = Date.now();
   db.prepare('INSERT INTO votes (work_id, user_id, created_at) VALUES (?, ?, ?)').run(workId, user.userid, now);
   const voteCount = db.prepare('SELECT COUNT(*) AS c FROM votes WHERE work_id = ?').get(workId).c;
 

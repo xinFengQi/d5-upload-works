@@ -11,9 +11,12 @@ const { generateToken } = require('../utils/crypto');
 const { createSuccessResponse, createErrorResponse, sendJson } = require('../utils/response');
 const { requireUser } = require('../middleware/auth');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const MAX_SIZE = 1024 * 1024 * 1024; // 1GB
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_SIZE },
+});
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
-const MAX_SIZE = 100 * 1024 * 1024; // 100MB
 
 const MAX_DESCRIPTION_LENGTH = 500;
 
@@ -140,7 +143,7 @@ router.post('/', requireUser, upload.single('file'), async (req, res) => {
       return sendJson(res, createErrorResponse('Invalid file type. Only MP4, MOV, and AVI are allowed', 'INVALID_FILE_TYPE', 400));
     }
     if (file.size > MAX_SIZE) {
-      return sendJson(res, createErrorResponse('File size exceeds 100MB', 'FILE_TOO_LARGE', 400));
+      return sendJson(res, createErrorResponse('File size exceeds 1GB', 'FILE_TOO_LARGE', 400));
     }
 
     const db = getDb();

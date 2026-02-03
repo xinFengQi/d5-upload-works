@@ -60,7 +60,7 @@
                     <span class="score-card-category-value">{{ work.category || '未设置' }}</span>
                   </div>
                   <div class="work-card-actions score-card-actions">
-                    <button v-if="isJudge" type="button" class="btn btn-primary" @click="openScoreModal(work)">评分</button>
+                    <button v-if="isJudge" type="button" class="btn btn-primary" :disabled="!isScoreOpen" :title="!isScoreOpen ? scoreClosedTip : undefined" @click="openScoreModal(work)">{{ isScoreOpen ? '评分' : '未开放' }}</button>
                     <button v-if="isJudge" type="button" class="btn btn-category" @click="openCategoryModal(work)">修改分类</button>
                     <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
                   </div>
@@ -95,7 +95,7 @@
                   <td><div class="work-my-score">{{ work.myScore != null ? work.myScore + ' 分' : '未打分' }}</div></td>
                   <td>
                     <div class="score-table-actions">
-                      <button v-if="isJudge" type="button" class="btn btn-primary btn-sm" @click="openScoreModal(work)">评分</button>
+                      <button v-if="isJudge" type="button" class="btn btn-primary btn-sm" :disabled="!isScoreOpen" :title="!isScoreOpen ? scoreClosedTip : undefined" @click="openScoreModal(work)">{{ isScoreOpen ? '评分' : '未开放' }}</button>
                       <button v-if="isJudge" type="button" class="btn btn-category btn-sm" @click="openCategoryModal(work)">修改分类</button>
                       <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
                     </div>
@@ -210,6 +210,15 @@
         </div>
       </div>
     </div>
+
+    <div class="tip-modal" :class="{ active: tipModal.show }" @click.self="closeTipModal">
+      <div class="tip-modal-content">
+        <div class="tip-modal-icon" :class="tipModal.type">{{ tipModal.icon }}</div>
+        <h3 class="tip-modal-title">{{ tipModal.title }}</h3>
+        <p class="tip-modal-message">{{ tipModal.message }}</p>
+        <button type="button" class="tip-modal-btn" @click="closeTipModal">确定</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -219,6 +228,7 @@ import { useRouter } from 'vue-router';
 import WorkVideoPreview from '../components/WorkVideoPreview.vue';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
 import { getJudgeWorks, submitScore as apiSubmitScore, getCategories as apiGetCategories, updateWorkCategory, getWorkJudgeScores } from '../api/judge';
+import { getScreenConfig } from '../api/screenConfig';
 import { useAuth } from '../composables/useAuth';
 
 const router = useRouter();
@@ -240,6 +250,39 @@ const categoryModal = reactive({
 const scoresModal = reactive({ show: false, workId: null, titleShort: '', loading: false, error: '', scores: [] });
 const previewWork = ref(null);
 const videoModalOpen = ref(false);
+const tipModal = reactive({ show: false, type: 'info', icon: 'ℹ️', title: '提示', message: '' });
+function showTipModal(message, type = 'info', title = '提示') {
+  tipModal.message = message;
+  tipModal.type = type;
+  tipModal.title = title;
+  tipModal.icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+  tipModal.show = true;
+}
+function closeTipModal() {
+  tipModal.show = false;
+}
+/** 评分开放时间（时间戳 ms），null 表示不限制 */
+const scoreOpenStart = ref(null);
+const scoreOpenEnd = ref(null);
+/** 当前是否在评分开放时间内 */
+const isScoreOpen = computed(() => {
+  const now = Date.now();
+  const start = scoreOpenStart.value;
+  const end = scoreOpenEnd.value;
+  if (start == null && end == null) return true;
+  if (start != null && now < start) return false;
+  if (end != null && now > end) return false;
+  return true;
+});
+/** 评分未开放时的提示文案 */
+const scoreClosedTip = computed(() => {
+  const now = Date.now();
+  const start = scoreOpenStart.value;
+  const end = scoreOpenEnd.value;
+  if (start != null && now < start) return `评分将于 ${new Date(start).toLocaleString('zh-CN')} 开始`;
+  if (end != null && now > end) return '评分已结束';
+  return '';
+});
 
 const sortedWorks = computed(() => {
   return [...works.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -319,10 +362,10 @@ async function confirmCategoryChange() {
       if (w) w.category = categoryModal.selectedCategory === '' ? null : categoryModal.selectedCategory;
       closeCategoryModal();
     } else {
-      alert(res.error?.message || '修改失败');
+      showTipModal(res.error?.message || '修改失败', 'error', '修改失败');
     }
   } catch {
-    alert('修改失败，请重试');
+    showTipModal('修改失败，请重试', 'error', '修改失败');
   } finally {
     categoryModal.saving = false;
   }
@@ -363,6 +406,10 @@ function showScores(work) {
 }
 
 function openScoreModal(work) {
+  if (!isScoreOpen.value) {
+    showTipModal(scoreClosedTip.value || '当前不在评分开放时间内', 'info', '评分未开放');
+    return;
+  }
   scoreModal.value = {
     show: true,
     workId: work.id,
@@ -393,9 +440,13 @@ function clampScore() {
 async function submitScore() {
   const { workId, title, score, saving } = scoreModal.value;
   if (saving || workId == null) return;
+  if (!isScoreOpen.value) {
+    showTipModal(scoreClosedTip.value || '当前不在评分开放时间内', 'info', '评分未开放');
+    return;
+  }
   let s = Number(score);
   if (Number.isNaN(s) || s < 1 || s > 100) {
-    alert('请输入 1–100 的整数');
+    showTipModal('请输入 1–100 的整数', 'error', '输入错误');
     return;
   }
   s = Math.round(s);
@@ -406,10 +457,10 @@ async function submitScore() {
       scoreModal.value.show = false;
       await loadWorks();
     } else {
-      alert(res.error?.message || '提交失败');
+      showTipModal(res.error?.message || '提交失败', 'error', '提交失败');
     }
   } catch {
-    alert('提交失败，请重试');
+    showTipModal('提交失败，请重试', 'error', '提交失败');
   } finally {
     scoreModal.value.saving = false;
   }
@@ -419,11 +470,21 @@ async function handleLogout() {
   await logout();
 }
 
+async function loadScreenConfigForScore() {
+  try {
+    const res = await getScreenConfig();
+    if (res.success && res.data) {
+      scoreOpenStart.value = res.data.scoreOpenStart != null ? Number(res.data.scoreOpenStart) : null;
+      scoreOpenEnd.value = res.data.scoreOpenEnd != null ? Number(res.data.scoreOpenEnd) : null;
+    }
+  } catch {}
+}
+
 onMounted(async () => {
   await checkAuth();
   isJudgeReady.value = true;
   if (!canAccessScore.value) return;
-  await Promise.all([loadWorks(), loadCategories()]);
+  await Promise.all([loadWorks(), loadCategories(), loadScreenConfigForScore()]);
 });
 </script>
 
@@ -789,4 +850,17 @@ onMounted(async () => {
 .modal-scores .score-info { flex: 1; min-width: 0; }
 .modal-scores .score-judge { font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
 .modal-scores .score-value { font-weight: 700; color: var(--primary-color); font-size: 1.125rem; margin-bottom: 0.25rem; }
+
+.tip-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 2rem; }
+.tip-modal.active { display: flex; }
+.tip-modal-content { background: white; border-radius: 1rem; padding: 2rem; max-width: 400px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; animation: tipSlideUp 0.3s ease-out; }
+@keyframes tipSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.tip-modal-icon { font-size: 3rem; margin-bottom: 1rem; }
+.tip-modal-icon.success { color: #10b981; }
+.tip-modal-icon.error { color: #ef4444; }
+.tip-modal-icon.info { color: var(--primary-color, #2563eb); }
+.tip-modal-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: #1f2937; }
+.tip-modal-message { color: #6b7280; font-size: 0.875rem; margin-bottom: 1.5rem; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+.tip-modal-btn { width: 100%; padding: 0.75rem; border-radius: 0.5rem; font-weight: 600; font-size: 1rem; border: none; cursor: pointer; transition: all 0.2s ease; background: var(--gradient, linear-gradient(135deg, #1e40af 0%, #2563eb 100%)); color: white; }
+.tip-modal-btn:hover { opacity: 0.95; transform: translateY(-1px); }
 </style>

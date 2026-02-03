@@ -516,7 +516,7 @@ export async function handleUploadPage(
           <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
             <div class="upload-icon">📁</div>
             <div class="upload-text">点击选择文件或拖拽文件到此处</div>
-            <div class="upload-hint">支持格式：mp4, mov, avi | 最大 100MB</div>
+            <div class="upload-hint">支持格式：mp4, mov, avi | 最大 1GB</div>
             <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/x-msvideo">
           </div>
           <div class="file-info" id="fileInfo">
@@ -539,7 +539,7 @@ export async function handleUploadPage(
 
   <script>
     let selectedFile = null;
-    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
     const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
 
     // 检查登录状态
@@ -613,7 +613,7 @@ export async function handleUploadPage(
 
       // 验证文件大小
       if (file.size > MAX_FILE_SIZE) {
-        showError(\`文件大小超过 100MB，请选择较小的文件\`);
+        showError(\`文件大小超过 1GB，请选择较小的文件\`);
         return;
       }
 
