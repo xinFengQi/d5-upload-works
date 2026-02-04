@@ -1,5 +1,5 @@
 /**
- * Express 应用：API 路由 + 开发时静态前端
+ * Express 应用：仅提供 API；开发环境前后端分离，生产环境可挂载前端静态（见下方）
  */
 require('dotenv').config();
 const express = require('express');
@@ -14,6 +14,7 @@ const screenConfigRoutes = require('./routes/screen-config');
 const judgeRoutes = require('./routes/judge');
 
 const app = express();
+const isDev = process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'development';
 
 // 配置挂到 app.locals，供路由使用
 app.locals.config = {
@@ -32,10 +33,6 @@ app.locals.config = {
   ALLOWED_REDIRECT_ORIGINS: process.env.ALLOWED_REDIRECT_ORIGINS || '',
 };
 
-// 静态资源：Vue 构建产物在 frontend-vue/dist（需先在 frontend-vue 下执行 npm run build）
-const frontendPath = path.join(__dirname, '..', 'frontend-vue', 'dist');
-app.use(express.static(frontendPath, { index: false }));
-
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -49,13 +46,18 @@ app.use('/api/vote', voteRoutes);
 app.use('/api/screen-config', screenConfigRoutes);
 app.use('/api/judge', judgeRoutes);
 
-// SPA 回退：非 API 请求先尝试静态文件，失败则返回 index.html
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  const file = path.join(frontendPath, req.path);
-  res.sendFile(file, (err) => {
-    if (err) res.sendFile(path.join(frontendPath, 'index.html'));
+// 开发环境：前后端分离，Node 不提供前端静态；前端用 Vite 跑在 5173，通过 proxy 访问本机 /api
+// 生产环境：可挂载 frontend-vue/dist 提供静态 + SPA 回退（若与 Nginx 分离部署则可不挂载，由 Nginx 提供静态）
+if (!isDev) {
+  const frontendPath = path.join(__dirname, '..', 'frontend-vue', 'dist');
+  app.use(express.static(frontendPath, { index: false }));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    const file = path.join(frontendPath, req.path);
+    res.sendFile(file, (err) => {
+      if (err) res.sendFile(path.join(frontendPath, 'index.html'));
+    });
   });
-});
+}
 
 module.exports = app;

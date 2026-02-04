@@ -50,20 +50,26 @@ cd server
 node db/init.js
 ```
 
-### 4. 启动服务
+### 4. 启动服务（开发环境前后端分离）
+
+**后端（仅 API，默认 8080）：**
 
 ```bash
 cd server
 npm start
 ```
 
-或从项目根目录：
+**前端（Vue 开发服务器，默认 5173，会代理 /api 到后端）：**
 
 ```bash
-npm start
+cd frontend-vue
+npm install
+npm run dev
 ```
 
-浏览器访问 `http://localhost:8080`。
+浏览器访问 **`http://localhost:5173`**。前端会把 `/api` 请求代理到 `http://localhost:8080`，无需 Node 提供静态资源。
+
+或从项目根目录只启动后端：`npm start`（会执行 `node server/server.js`）。
 
 ## 部署说明
 
