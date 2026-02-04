@@ -1955,6 +1955,7 @@ body.index-page::before {
   position: relative;
   z-index: 1;
   background: var(--bg-primary);
+  min-width: 0;
 }
 .index-page .work-title {
   font-size: 1.0625rem;
@@ -1976,6 +1977,9 @@ body.index-page::before {
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-height: 0;
 }
 .index-page .work-creator-row {
   display: flex;

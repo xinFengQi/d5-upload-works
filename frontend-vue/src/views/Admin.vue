@@ -1058,15 +1058,28 @@ onMounted(async () => {
 
 #adminContent { display: block; }
 
-/* 作品列表区域加宽，表格占满容器 */
+/* 作品列表区域：支持横向滚动，标题过长时省略 */
 .admin-page .works-table-container {
   width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .admin-page .works-table-container .table {
   width: 100%;
+  min-width: 720px;
 }
 .admin-page .works-table-container .table .work-title {
-  max-width: none;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
+}
+.admin-page .works-table-container .works-cards .work-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
 }
 
 /* 预览列可点击播放：与 Score 一致，使用 WorkVideoPreview + WorkVideoModal */

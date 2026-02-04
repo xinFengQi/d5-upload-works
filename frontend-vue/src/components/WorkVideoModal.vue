@@ -13,13 +13,15 @@
       >
         ×
       </button>
-      <video ref="videoRef" controls autoplay playsinline muted></video>
-      <div v-if="work" class="work-video-modal-info">
-        <h3 class="work-video-modal-title">{{ work.title || '未命名作品' }}</h3>
-        <p v-if="work.description" class="work-video-modal-desc">{{ work.description }}</p>
-        <div class="work-video-modal-meta">
-          <span class="work-video-modal-author">作者：{{ work.creatorName || '未知' }}</span>
-          <span class="work-video-modal-votes">{{ work.voteCount ?? 0 }} 票</span>
+      <div class="work-video-modal-scroll">
+        <video ref="videoRef" controls autoplay playsinline muted></video>
+        <div v-if="work" class="work-video-modal-info">
+          <h3 class="work-video-modal-title">{{ work.title || '未命名作品' }}</h3>
+          <p v-if="work.description" class="work-video-modal-desc">{{ work.description }}</p>
+          <div class="work-video-modal-meta">
+            <span class="work-video-modal-author">作者：{{ work.creatorName || '未知' }}</span>
+            <span class="work-video-modal-votes">{{ work.voteCount ?? 0 }} 票</span>
+          </div>
         </div>
       </div>
     </div>
@@ -98,6 +100,34 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-right: 0.5rem;
+}
+/* 视频+信息区可滚动，避免描述过长把弹层撑得很高；右侧留白，滚动条不贴边 */
+.work-video-modal-scroll {
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.06);
+}
+.work-video-modal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.work-video-modal-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+}
+.work-video-modal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+.work-video-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 .work-video-modal-content video {
   width: 100%;
