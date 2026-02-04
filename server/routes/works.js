@@ -10,6 +10,26 @@ const { requireUser, requireAdmin, getSessionUser } = require('../middleware/aut
 const { normalizeWorkId } = require('../utils/validate');
 
 const MAX_PAGE = 1000;
+const MAX_TITLE_LENGTH = 200;
+
+// 校验作品标题是否可用（上传前异步校验，避免上传后才发现重复）
+router.get('/check-title', requireUser, (req, res) => {
+  try {
+    const title = (req.query.title ?? '').trim();
+    if (!title) {
+      return sendJson(res, createErrorResponse('请输入作品标题', 'NO_TITLE', 400));
+    }
+    if (title.length > MAX_TITLE_LENGTH) {
+      return sendJson(res, createErrorResponse(`标题最多 ${MAX_TITLE_LENGTH} 字`, 'TITLE_TOO_LONG', 400));
+    }
+    const db = getDb();
+    const existing = db.prepare('SELECT id FROM works WHERE LOWER(TRIM(title)) = LOWER(?)').get(title);
+    sendJson(res, createSuccessResponse({ available: !existing }));
+  } catch (err) {
+    console.error('Check title error:', err);
+    sendJson(res, createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500));
+  }
+});
 
 // 作品列表（分页）。带 Authorization 时返回每条的 hasVoted，避免前端 N 次 stats 请求
 router.get('/', (req, res) => {

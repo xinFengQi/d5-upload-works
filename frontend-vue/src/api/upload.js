@@ -10,7 +10,17 @@ export function completeUpload(body) {
   return request.post('/api/upload/complete', body).then((res) => res.data);
 }
 
-/** 上传作品（FormData：经后端中转，无 STS 时回退使用） */
-export function uploadWork(formData) {
-  return request.post('/api/upload', formData).then((res) => res.data);
+/**
+ * 上传作品（FormData：经后端中转，无 STS 时回退使用）
+ * @param {FormData} formData
+ * @param {{ onUploadProgress?: (e: { loaded: number; total?: number }) => void }} config - 可选，onUploadProgress 用于进度条
+ */
+export function uploadWork(formData, config = {}) {
+  return request
+    .post('/api/upload', formData, {
+      ...(config.onUploadProgress && {
+        onUploadProgress: (e) => config.onUploadProgress?.(e),
+      }),
+    })
+    .then((res) => res.data);
 }

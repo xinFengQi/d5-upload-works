@@ -15,6 +15,11 @@ export function getWorksByAward(type = 'popular', limit = 10) {
   return request.get('/api/works/by-award', { params: { type, limit } }).then((res) => res.data);
 }
 
+/** 校验作品标题是否可用（上传前调用，避免上传后才发现重复） */
+export function checkWorkTitle(title) {
+  return request.get('/api/works/check-title', { params: { title: (title || '').trim() } }).then((res) => res.data);
+}
+
 /** 删除作品 */
 export function deleteWork(id) {
   return request.delete(`/api/works/${id}`).then((res) => res.data);

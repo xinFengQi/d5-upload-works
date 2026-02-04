@@ -413,6 +413,9 @@ body.admin-page .container {
 .file-name {
   font-weight: 500;
   margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-size {
