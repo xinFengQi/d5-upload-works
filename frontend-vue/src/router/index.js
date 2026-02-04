@@ -7,8 +7,8 @@ const routes = [
   { path: '/vote-result', name: 'VoteResult', component: () => import('../views/VoteResult.vue'), meta: { title: '投票结果' } },
   { path: '/screen', name: 'Screen', component: () => import('../views/Screen.vue'), meta: { title: '大屏展示' } },
   { path: '/multi-screen', name: 'MultiScreen', component: () => import('../views/MultiScreen.vue'), meta: { title: '多屏播放' } },
-  { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { title: '作品管理', admin: true } },
-  { path: '/score', name: 'Score', component: () => import('../views/Score.vue'), meta: { title: '作品评价', auth: true } },
+  { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { title: '管理员控制台', admin: true } },
+  { path: '/score', name: 'Score', component: () => import('../views/Score.vue'), meta: { title: '评委控制台', auth: true } },
 ];
 
 const router = createRouter({

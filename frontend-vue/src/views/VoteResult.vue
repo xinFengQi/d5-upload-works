@@ -8,7 +8,7 @@
       <div class="content-wrapper">
         <div class="screen-header">
           <h1 class="screen-title">2026年会作品投票结果</h1>
-          <p class="screen-subtitle">Top 10 作品展示</p>
+          <p class="screen-subtitle">{{ awardName }} · Top {{ awardLimit }} 作品展示</p>
           <p style="font-size: 1rem; opacity: 0.8; margin-top: 0.5rem;">见证创作的力量</p>
         </div>
 
@@ -26,22 +26,22 @@
         </div>
 
         <template v-else>
-          <div class="podium-section">
+          <div :class="['podium-section', 'count-' + podiumCount]">
             <div
-              v-for="(w, idx) in podiumOrder"
-              :key="w.id"
-              :class="['podium-item', ranks[idx]]"
+              v-for="(item, idx) in podiumItems"
+              :key="item.work.id"
+              :class="['podium-item', item.rankClass]"
             >
-              <div :class="['podium-rank', ranks[idx]]">{{ rankLabels[idx] }}</div>
+              <div :class="['podium-rank', item.rankClass]">{{ item.rankLabel }}</div>
               <div class="podium-card">
                 <div class="podium-video">
-                  <video :src="w.fileUrl" autoplay loop muted></video>
+                  <WorkVideoPreview :work="item.work" variant="card" :autoplay="true" @preview="openVideoPreview(item.work)" />
                 </div>
-                <div class="podium-title">{{ w.title || '未命名作品' }}</div>
-                <div class="podium-creator">{{ w.creatorName || '未知' }}</div>
-                <div class="podium-votes">{{ w.voteCount ?? 0 }} 票</div>
+                <div class="podium-title">{{ item.work.title || '未命名作品' }}</div>
+                <div class="podium-creator">{{ item.work.creatorName || '未知' }}</div>
+                <div class="podium-votes">{{ item.work.voteCount ?? 0 }} 票</div>
               </div>
-              <div class="podium-height"><span>{{ rankTexts[idx] }}</span></div>
+              <div class="podium-height"><span>{{ item.rankText }}</span></div>
             </div>
           </div>
 
@@ -61,25 +61,61 @@
         </template>
       </div>
     </div>
+
+    <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { getWorksTop } from '../api/works';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import WorkVideoPreview from '../components/WorkVideoPreview.vue';
+import WorkVideoModal from '../components/WorkVideoModal.vue';
+import { getWorksByAward } from '../api/works';
 import { getScreenConfig } from '../api/screenConfig';
 
+const route = useRoute();
 const loading = ref(true);
+const videoModalOpen = ref(false);
+const previewWork = ref(null);
 const error = ref('');
 const works = ref([]);
+const awardName = ref('人气奖');
+const awardLimit = ref(10);
 const refreshTimer = ref(null);
 
+/** 当前奖项类型（来自路由 query.type，默认人气奖） */
+const awardType = computed(() => (route.query.type || 'popular').toString().toLowerCase().trim() || 'popular');
+
 const topThree = computed(() => works.value.slice(0, 3));
-const displayOrder = [1, 0, 2];
-const ranks = ['second', 'first', 'third'];
-const rankLabels = ['🥈', '🥇', '🥉'];
-const rankTexts = ['第2名', '第1名', '第3名'];
-const podiumOrder = computed(() => displayOrder.map((i) => topThree.value[i]).filter(Boolean));
+const podiumCount = computed(() => Math.min(3, topThree.value.length));
+
+/** 颁奖台展示项：根据 1/2/3 个奖项生成顺序与排名文案 */
+const podiumItems = computed(() => {
+  const list = topThree.value;
+  const n = list.length;
+  if (n === 0) return [];
+  const rankMeta = [
+    { class: 'first', label: '🥇', text: '第1名' },
+    { class: 'second', label: '🥈', text: '第2名' },
+    { class: 'third', label: '🥉', text: '第3名' },
+  ];
+  if (n === 1) {
+    return [{ work: list[0], rankClass: rankMeta[0].class, rankLabel: rankMeta[0].label, rankText: rankMeta[0].text }];
+  }
+  if (n === 2) {
+    return [
+      { work: list[1], rankClass: rankMeta[1].class, rankLabel: rankMeta[1].label, rankText: rankMeta[1].text },
+      { work: list[0], rankClass: rankMeta[0].class, rankLabel: rankMeta[0].label, rankText: rankMeta[0].text },
+    ];
+  }
+  return [
+    { work: list[1], rankClass: rankMeta[1].class, rankLabel: rankMeta[1].label, rankText: rankMeta[1].text },
+    { work: list[0], rankClass: rankMeta[0].class, rankLabel: rankMeta[0].label, rankText: rankMeta[0].text },
+    { work: list[2], rankClass: rankMeta[2].class, rankLabel: rankMeta[2].label, rankText: rankMeta[2].text },
+  ];
+});
+
 const listWorks = computed(() => works.value.slice(3, 10));
 
 function applyTheme(theme) {
@@ -94,6 +130,17 @@ function applyTheme(theme) {
   root.style.setProperty('--gradient', `linear-gradient(135deg, ${pd} 0%, ${pc} 100%)`);
 }
 
+function openVideoPreview(work) {
+  if (!work?.fileUrl && !work?.file_url) return;
+  previewWork.value = work;
+  videoModalOpen.value = true;
+}
+
+function closeVideoModal() {
+  previewWork.value = null;
+  videoModalOpen.value = false;
+}
+
 async function loadTheme() {
   try {
     const res = await getScreenConfig();
@@ -104,14 +151,17 @@ async function loadTheme() {
 async function load() {
   loading.value = true;
   error.value = '';
+  const type = awardType.value;
   try {
-    const res = await getWorksTop(10);
+    const res = await getWorksByAward(type, 10);
     if (!res.success || !res.data?.items) {
       error.value = res.error?.message || '加载失败';
       works.value = [];
       return;
     }
     works.value = res.data.items;
+    awardName.value = res.data.awardName || '人气奖';
+    awardLimit.value = res.data.items.length;
   } catch (e) {
     error.value = e.response?.data?.error?.message || '加载失败，请刷新重试';
     works.value = [];
@@ -119,6 +169,8 @@ async function load() {
     loading.value = false;
   }
 }
+
+watch(awardType, () => { load(); });
 
 onMounted(async () => {
   document.body.classList.add('vote-result-page');

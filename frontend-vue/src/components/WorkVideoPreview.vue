@@ -1,7 +1,7 @@
 <template>
   <div
     class="work-video-preview-wrap"
-    :class="{ 'work-video-preview-cell': variant === 'cell' }"
+    :class="{ 'work-video-preview-cell': variant === 'cell', 'work-video-preview-autoplay': autoplay }"
     role="button"
     tabindex="0"
     @click="handleClick"
@@ -11,8 +11,10 @@
     <video
       class="work-video-preview-video"
       :src="work?.fileUrl || work?.file_url"
+      :autoplay="autoplay"
+      :loop="autoplay"
       muted
-      preload="metadata"
+      :preload="autoplay ? 'auto' : 'metadata'"
       playsinline
     ></video>
     <div class="work-video-preview-overlay">
@@ -33,6 +35,11 @@ const props = defineProps({
     type: String,
     default: 'card',
     validator: (v) => ['card', 'cell'].includes(v),
+  },
+  /** 是否在预览区自动播放（循环静音），点击仍可打开全屏；不传时默认 false，不影响首页/管理页等 */
+  autoplay: {
+    type: Boolean,
+    default: false,
   },
 });
 

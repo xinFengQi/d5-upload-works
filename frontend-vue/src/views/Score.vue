@@ -27,8 +27,8 @@
 
       <main class="container">
         <div class="page-header">
-          <h1 class="page-title">作品评价</h1>
-          <p class="page-subtitle">评委作品管理，对作品进行评分与评价</p>
+          <h1 class="page-title">评委控制台</h1>
+          <p class="page-subtitle">对作品进行评分与评价</p>
         </div>
 
         <div class="works-table-container">

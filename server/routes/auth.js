@@ -13,18 +13,20 @@ const STATE_TTL_SEC = 600; // 10 分钟
 
 /** 仅允许重定向到配置的白名单 origin，防止开放重定向 + token 泄露 */
 function resolveRedirectOrigin(req) {
-  const fallback = `${req.protocol}://${req.get('host')}`;
+  const config = req.app.locals.config;
+  const backendHost = `${req.protocol}://${req.get('host')}`;
   const raw = req.query.frontend_origin;
-  if (!raw || typeof raw !== 'string') return fallback;
+  if (!raw || typeof raw !== 'string') return backendHost;
   const candidate = raw.trim();
-  if (!/^https?:\/\/[^/]+$/.test(candidate)) return fallback;
-  const allowed = (req.app.locals.config?.ALLOWED_REDIRECT_ORIGINS || '')
+  if (!/^https?:\/\/[^/]+$/.test(candidate)) return backendHost;
+  const allowed = (config?.ALLOWED_REDIRECT_ORIGINS || '')
     .split(',')
     .map((o) => o.trim().toLowerCase())
     .filter(Boolean);
-  if (allowed.length === 0) return fallback;
-  if (allowed.includes(candidate.toLowerCase())) return candidate;
-  return fallback;
+  if (allowed.length > 0 && allowed.includes(candidate.toLowerCase())) return candidate;
+  // 开发环境：若未配置白名单，允许请求里带的 localhost/127.0.0.1 前端地址，避免回调跳到后端端口白屏
+  if (isDevelopment(config, req) && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(candidate)) return candidate;
+  return backendHost;
 }
 
 function isDevelopment(config, req) {

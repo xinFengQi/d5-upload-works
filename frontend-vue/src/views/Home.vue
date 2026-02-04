@@ -14,11 +14,32 @@
           </div>
           <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
           <router-link to="/upload" class="btn btn-primary">上传作品</router-link>
-          <router-link to="/vote-result" class="btn btn-outline">投票结果</router-link>
-          <router-link v-if="isJudge || isAdmin" to="/score" class="btn btn-outline">作品评价</router-link>
-          <router-link to="/screen" class="btn btn-outline">大屏展示</router-link>
-          <router-link to="/multi-screen" class="btn btn-outline">多屏播放</router-link>
-          <router-link v-if="isAdmin" to="/admin" class="btn btn-outline">管理</router-link>
+          <div class="nav-menu-dropdown">
+            <button type="button" class="btn btn-outline" :class="{ active: showVoteResultDropdown }" @click="toggleVoteResultDropdown" @blur="onVoteResultDropdownBlur">
+              投票结果 ▾
+            </button>
+            <div v-show="showVoteResultDropdown" class="nav-dropdown-panel">
+              <router-link to="/vote-result?type=popular" class="dropdown-link" @click="closeVoteResultDropdown">人气奖</router-link>
+            </div>
+          </div>
+          <div class="nav-menu-dropdown">
+            <button type="button" class="btn btn-outline" :class="{ active: showScreenDropdown }" @click="toggleScreenDropdown" @blur="onScreenDropdownBlur">
+              展示 ▾
+            </button>
+            <div v-show="showScreenDropdown" class="nav-dropdown-panel">
+              <router-link to="/screen" class="dropdown-link" @click="closeScreenDropdown">大屏展示</router-link>
+              <router-link to="/multi-screen" class="dropdown-link" @click="closeScreenDropdown">多屏播放</router-link>
+            </div>
+          </div>
+          <div v-if="canAccessConsole" class="nav-menu-dropdown">
+            <button type="button" class="btn btn-outline" :class="{ active: showConsoleDropdown }" @click="toggleConsoleDropdown" @blur="onConsoleDropdownBlur">
+              控制台 ▾
+            </button>
+            <div v-show="showConsoleDropdown" class="nav-dropdown-panel">
+              <router-link v-if="isJudge || isAdmin" to="/score" class="dropdown-link" @click="closeConsoleDropdown">评委控制台</router-link>
+              <router-link v-if="isAdmin" to="/admin" class="dropdown-link" @click="closeConsoleDropdown">管理员控制台</router-link>
+            </div>
+          </div>
         </div>
         <button type="button" class="menu-toggle" aria-label="打开菜单" @click="openSideMenu">☰</button>
       </div>
@@ -39,11 +60,22 @@
         </div>
         <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
         <router-link to="/upload" class="btn btn-primary" @click="closeSideMenu">上传作品</router-link>
-        <router-link to="/vote-result" class="btn btn-outline" @click="closeSideMenu">投票结果</router-link>
-        <router-link v-if="isJudge || isAdmin" to="/score" class="btn btn-outline" @click="closeSideMenu">作品评价</router-link>
-        <router-link to="/screen" class="btn btn-outline" @click="closeSideMenu">大屏展示</router-link>
-        <router-link to="/multi-screen" class="btn btn-outline" @click="closeSideMenu">多屏播放</router-link>
-        <router-link v-if="isAdmin" to="/admin" class="btn btn-outline" @click="closeSideMenu">管理</router-link>
+        <div class="side-menu-group">
+          <div class="side-menu-group-title">投票结果</div>
+          <router-link to="/vote-result?type=popular" class="btn btn-outline" @click="closeSideMenu">人气奖</router-link>
+        </div>
+        <div class="side-menu-group">
+          <div class="side-menu-group-title">展示</div>
+          <router-link to="/screen" class="btn btn-outline" @click="closeSideMenu">大屏展示</router-link>
+          <router-link to="/multi-screen" class="btn btn-outline" @click="closeSideMenu">多屏播放</router-link>
+        </div>
+        <template v-if="canAccessConsole">
+          <div class="side-menu-group">
+            <div class="side-menu-group-title">控制台</div>
+            <router-link v-if="isJudge || isAdmin" to="/score" class="btn btn-outline" @click="closeSideMenu">评委控制台</router-link>
+            <router-link v-if="isAdmin" to="/admin" class="btn btn-outline" @click="closeSideMenu">管理员控制台</router-link>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -65,7 +97,12 @@
             <WorkVideoPreview :work="w" variant="card" @preview="openVideoPreview(w)" />
             <div class="work-content">
               <div class="work-title">{{ w.title || '未命名作品' }}</div>
-              <div class="work-creator">{{ w.creatorName || '未知' }}</div>
+              <p v-if="w.description" class="work-description" :title="w.description">{{ w.description }}</p>
+              <div class="work-creator-row">
+                <img v-if="w.creatorAvatar" :src="w.creatorAvatar" :alt="w.creatorName || ''" class="work-creator-avatar">
+                <span v-else class="work-creator-avatar work-creator-avatar-placeholder">{{ (w.creatorName || '未')[0] }}</span>
+                <span class="work-creator-name">{{ w.creatorName || '未知' }}</span>
+              </div>
               <div class="work-footer">
                 <div class="work-votes"><span>{{ w.voteCount ?? 0 }}</span></div>
                 <button
@@ -149,7 +186,12 @@ const voteClosedTip = computed(() => {
 });
 const showUserDropdown = ref(false);
 const showSideUserDropdown = ref(false);
+const showVoteResultDropdown = ref(false);
+const showScreenDropdown = ref(false);
+const showConsoleDropdown = ref(false);
 const sideMenuOpen = ref(false);
+/** 是否可访问控制台（评委或管理员） */
+const canAccessConsole = computed(() => isJudge.value || isAdmin.value);
 const videoModalOpen = ref(false);
 const previewWork = ref(null);
 const gridRef = ref(null);
@@ -193,9 +235,54 @@ async function loadTheme() {
 
 function toggleUserMenu() {
   showUserDropdown.value = !showUserDropdown.value;
+  showVoteResultDropdown.value = false;
+  showScreenDropdown.value = false;
+  showConsoleDropdown.value = false;
 }
 function toggleSideUserMenu() {
   showSideUserDropdown.value = !showSideUserDropdown.value;
+}
+function toggleVoteResultDropdown() {
+  showVoteResultDropdown.value = !showVoteResultDropdown.value;
+  if (showVoteResultDropdown.value) {
+    showUserDropdown.value = false;
+    showScreenDropdown.value = false;
+    showConsoleDropdown.value = false;
+  }
+}
+function closeVoteResultDropdown() {
+  showVoteResultDropdown.value = false;
+}
+function onVoteResultDropdownBlur() {
+  setTimeout(() => { showVoteResultDropdown.value = false; }, 150);
+}
+function toggleScreenDropdown() {
+  showScreenDropdown.value = !showScreenDropdown.value;
+  if (showScreenDropdown.value) {
+    showUserDropdown.value = false;
+    showVoteResultDropdown.value = false;
+    showConsoleDropdown.value = false;
+  }
+}
+function closeScreenDropdown() {
+  showScreenDropdown.value = false;
+}
+function onScreenDropdownBlur() {
+  setTimeout(() => { showScreenDropdown.value = false; }, 150);
+}
+function toggleConsoleDropdown() {
+  showConsoleDropdown.value = !showConsoleDropdown.value;
+  if (showConsoleDropdown.value) {
+    showUserDropdown.value = false;
+    showVoteResultDropdown.value = false;
+    showScreenDropdown.value = false;
+  }
+}
+function closeConsoleDropdown() {
+  showConsoleDropdown.value = false;
+}
+function onConsoleDropdownBlur() {
+  setTimeout(() => { showConsoleDropdown.value = false; }, 150);
 }
 function openSideMenu() {
   sideMenuOpen.value = true;
@@ -221,6 +308,7 @@ function toDisplayItem(work, stats) {
     title: work.title,
     description: work.description,
     creatorName: work.creatorName,
+    creatorAvatar: work.creatorAvatar,
     userId: work.userId,
     voteCount: (stats?.success && stats?.data) ? (stats.data.voteCount ?? work.voteCount) : (work.voteCount ?? 0),
     hasVoted: (stats?.success && stats?.data) ? !!stats.data.hasVoted : false,
@@ -310,14 +398,18 @@ async function handleVote(w) {
 onMounted(async () => {
   try {
     await loadTheme();
-    // 钉钉回调带 token：直接写入并清掉 URL 参数
-    const tokenFromUrl = route.query.token;
+    // 钉钉回调带 token：可能落在 hash 前 (?token=xxx#/) 或 hash 内 (#/?token=xxx)，两处都读
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const tokenFromUrl =
+      route.query.token || (searchParams && searchParams.get('token'));
     if (tokenFromUrl) {
       setToken(tokenFromUrl);
-      window.history.replaceState({}, document.title, route.path || '/');
+      // 清掉 URL 上的 token，避免暴露且刷新重复用
+      const path = window.location.pathname || '/';
+      const hash = window.location.hash || '#/';
+      window.history.replaceState({}, document.title, path + hash);
     } else {
       // 钉钉回调带 code/authCode：可能落在 hash 前 (?code=xxx#/) 或 hash 内 (#/?code=xxx)，两处都读
-      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const code =
         route.query.code ||
         route.query.authCode ||
@@ -334,8 +426,9 @@ onMounted(async () => {
           if (res.success && res.data?.token) {
             setToken(res.data.token);
             // 清掉 URL 上的 code/state，避免刷新重复用
-            const cleanUrl = window.location.origin + (window.location.pathname || '/') + (window.location.hash || '#/');
-            window.history.replaceState({}, document.title, cleanUrl);
+            const path = window.location.pathname || '/';
+            const hash = window.location.hash || '#/';
+            window.history.replaceState({}, document.title, path + hash);
           }
         } catch (e) {
           console.error('Exchange code for token failed:', e);
