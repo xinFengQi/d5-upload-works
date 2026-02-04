@@ -16,8 +16,8 @@ globs:
 - API 返回字段使用 camelCase：fileUrl, fileName, creatorName, createdAt, updatedAt, voteCount（列表/ top 时）
 
 ## 投票
-- **votes**：work_id, user_id, created_at，主键 (work_id, user_id)
-- 每人每作品一票；每人最多投票数由 screen_config.max_votes_per_user 配置（1–100），管理员与普通用户一致
+- **votes**：work_id, user_id, vote_date(YYYY-MM-DD 中国时区), created_at，主键 (work_id, user_id, vote_date)
+- 每人每天每作品一票；每人每天最多投票数由 screen_config.max_votes_per_user 配置（1–100）；总票数为总人次；取消仅能取消当天票
 
 ## 评委评分
 - **judge_scores**：work_id, judge_email, score(1–100), created_at，主键 (work_id, judge_email)

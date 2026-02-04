@@ -110,7 +110,7 @@ router.post('/', requireAdmin, (req, res) => {
     if (maxVotesPerUser != null) {
       const n = Number(maxVotesPerUser);
       if (Number.isNaN(n) || n < 1 || n > 100) {
-        return sendJson(res, createErrorResponse('每人最多投票数须为 1–100 的整数', 'INVALID_REQUEST', 400));
+        return sendJson(res, createErrorResponse('每人每天最多投票数须为 1–100 的整数', 'INVALID_REQUEST', 400));
       }
     }
     if (judges != null) {

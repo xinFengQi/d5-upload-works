@@ -203,11 +203,11 @@
           <div class="config-card">
             <div class="config-content">
               <div class="config-header-inline">
-                <h2 class="config-title">每人最多投票数</h2>
-                <p class="config-subtitle">限制每个用户最多可投多少票（1–100）</p>
+                <h2 class="config-title">每人每天最多投票数</h2>
+                <p class="config-subtitle">限制每个用户每天最多可投多少票（1–100），按中国时区；隔天可对同一作品再投</p>
               </div>
               <div class="config-form-group">
-                <label class="config-label">最多投票数</label>
+                <label class="config-label">每天最多投票数</label>
                 <input v-model.number="maxVotesPerUser" type="number" class="config-input" min="1" max="100" placeholder="1">
               </div>
               <div class="config-actions">
@@ -582,7 +582,7 @@ function saveMaxVotes() {
     .then((res) => {
       if (res.success) {
         maxVotesMessage.value = '已保存';
-        showToast('每人最多投票数已保存', 'success');
+        showToast('每人每天最多投票数已保存', 'success');
       } else {
         maxVotesMessage.value = res.error?.message || '保存失败';
       }

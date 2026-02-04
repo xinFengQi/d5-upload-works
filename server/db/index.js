@@ -106,6 +106,35 @@ function initSchema(db) {
         }
       }
     }
+    // 投票表按天：旧表无 vote_date 时迁移为 (work_id, user_id, vote_date)，中国时区日期
+    const hasVotes = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='votes'").get();
+    if (hasVotes && !hasColumn(db, 'votes', 'vote_date')) {
+      console.log('[db] 开始迁移 votes 表：添加 vote_date，主键改为 (work_id, user_id, vote_date)');
+      db.exec(`
+        CREATE TABLE votes_new (
+          work_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          vote_date TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (work_id, user_id, vote_date),
+          FOREIGN KEY (work_id) REFERENCES works(id),
+          FOREIGN KEY (user_id) REFERENCES users(userid)
+        )
+      `);
+      db.exec(`
+        INSERT INTO votes_new (work_id, user_id, vote_date, created_at)
+        SELECT work_id, user_id,
+          strftime('%Y-%m-%d', created_at/1000, 'unixepoch', '+8 hours'),
+          created_at
+        FROM votes
+      `);
+      db.exec('DROP TABLE votes');
+      db.exec('ALTER TABLE votes_new RENAME TO votes');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_votes_work ON votes(work_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_votes_user ON votes(user_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_votes_user_date ON votes(user_id, vote_date)');
+      console.log('[db] votes 表迁移完成');
+    }
   } catch (e) {
     console.error('Migration error:', e);
   }

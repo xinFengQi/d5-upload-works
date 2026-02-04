@@ -62,7 +62,7 @@ alwaysApply: true
 
 #### 4. 投票 (vote.js)
 - `POST /api/vote`、`DELETE /api/vote`、`GET /api/vote/stats`、`GET /api/vote/user/count`、`GET /api/vote/users`（管理员）
-- 投票记录存 votes 表；每人每作品一票；每人最多投票数由 screen_config.max_votes_per_user 配置（1–100），管理员与普通用户一视同仁；仅在「投票开放时间」内可投票（接口层校验）
+- 投票记录存 votes 表（含 vote_date，中国时区）；每人每天每作品一票；每人每天最多投票数由 screen_config.max_votes_per_user 配置（1–100），隔天可对同一作品再投；总票数为总人次；取消投票仅能取消今天的票；仅在「投票开放时间」内可投票/取消（接口层校验）
 
 #### 5. 大屏配置 (screen-config.js)
 - `GET/POST /api/screen-config`，POST 仅管理员

@@ -43,17 +43,19 @@ CREATE TABLE IF NOT EXISTS works (
 );
 CREATE INDEX IF NOT EXISTS idx_works_created ON works(created_at DESC);
 
--- 投票记录表（每人每作品一票）
+-- 投票记录表（每人每天每作品一票，按中国时区；总票数为总人次）
 CREATE TABLE IF NOT EXISTS votes (
   work_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
+  vote_date TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  PRIMARY KEY (work_id, user_id),
+  PRIMARY KEY (work_id, user_id, vote_date),
   FOREIGN KEY (work_id) REFERENCES works(id),
   FOREIGN KEY (user_id) REFERENCES users(userid)
 );
 CREATE INDEX IF NOT EXISTS idx_votes_work ON votes(work_id);
 CREATE INDEX IF NOT EXISTS idx_votes_user ON votes(user_id);
+CREATE INDEX IF NOT EXISTS idx_votes_user_date ON votes(user_id, vote_date);
 
 -- 评委评分明细（每评委每作品一分数，用于计算作品维度汇总）
 CREATE TABLE IF NOT EXISTS judge_scores (

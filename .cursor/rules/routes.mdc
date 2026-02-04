@@ -40,11 +40,11 @@ globs:
 - `DELETE /api/works/:workId`：仅管理员
 
 ### 投票 /api/vote
-- `POST /api/vote`：body `{ workId }`，需登录；受投票开放时间与每人最多投票数限制（管理员同限）
-- `DELETE /api/vote`：query `workId`，需登录
-- `GET /api/vote/user/count`：当前用户已投票数，需登录
-- `GET /api/vote/stats`：query `workId`，返回 voteCount、hasVoted
-- `GET /api/vote/users`：query `workId`，投票用户列表，仅管理员
+- `POST /api/vote`：body `{ workId }`，需登录；受投票开放时间与每人每天最多投票数限制（中国时区）；当天每作品一票
+- `DELETE /api/vote`：query `workId`，需登录；仅能取消今天投的票，且在投票开放时间内
+- `GET /api/vote/user/count`：当前用户今日已投票数（中国时区），需登录
+- `GET /api/vote/stats`：query `workId`，返回 voteCount（总人次）、hasVoted（今日是否已投）
+- `GET /api/vote/users`：query `workId`，投票记录列表（含多天），仅管理员
 
 ### 大屏与系统配置 /api/screen-config
 - `GET /api/screen-config`：返回 gridLayout、theme、maxVotesPerUser、judges、voteOpenStart/End、scoreOpenStart/End、updatedAt

@@ -8,6 +8,7 @@ const { OSSService } = require('../services/oss');
 const { createSuccessResponse, createErrorResponse, createPaginatedResponse, sendJson } = require('../utils/response');
 const { requireUser, requireAdmin, getSessionUser } = require('../middleware/auth');
 const { normalizeWorkId } = require('../utils/validate');
+const { getTodayDateChina } = require('../utils/dateChina');
 
 const MAX_PAGE = 1000;
 const MAX_TITLE_LENGTH = 200;
@@ -49,7 +50,8 @@ router.get('/', (req, res) => {
     let votedWorkIds = new Set();
     const currentUser = getSessionUser(req);
     if (currentUser) {
-      const voted = db.prepare('SELECT work_id FROM votes WHERE user_id = ?').all(currentUser.userid);
+      const voteDate = getTodayDateChina();
+      const voted = db.prepare('SELECT work_id FROM votes WHERE user_id = ? AND vote_date = ?').all(currentUser.userid, voteDate);
       votedWorkIds = new Set(voted.map((r) => r.work_id));
     }
     const items = rows.map((r) => ({
