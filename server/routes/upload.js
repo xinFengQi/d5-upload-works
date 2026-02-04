@@ -8,7 +8,7 @@ const { getDb } = require('../db');
 const { OSSService } = require('../services/oss');
 const { getStsCredentials } = require('../services/sts');
 const { generateToken } = require('../utils/crypto');
-const { createSuccessResponse, createErrorResponse, sendJson } = require('../utils/response');
+const { createSuccessResponse, createErrorResponse, sendJson, safeErrorMessage } = require('../utils/response');
 const { requireUser } = require('../middleware/auth');
 
 const MAX_SIZE = 1024 * 1024 * 1024; // 1GB
@@ -35,7 +35,7 @@ router.get('/sts-credentials', requireUser, async (req, res) => {
     }));
   } catch (err) {
     console.error('STS credentials error:', err.message);
-    sendJson(res, createErrorResponse(err.message || '获取上传凭证失败', 'STS_ERROR', 500));
+    sendJson(res, createErrorResponse(safeErrorMessage(err, '获取上传凭证失败'), 'STS_ERROR', 500));
   }
 });
 
@@ -169,7 +169,7 @@ router.post('/', requireUser, upload.single('file'), async (req, res) => {
       fileUrl = await oss.uploadFile(file.buffer, ossKey, file.mimetype);
     } catch (err) {
       console.error('OSS upload error:', err);
-      return sendJson(res, createErrorResponse(err.message || 'OSS upload failed', 'OSS_UPLOAD_ERROR', 500));
+      return sendJson(res, createErrorResponse(safeErrorMessage(err, 'OSS 上传失败'), 'OSS_UPLOAD_ERROR', 500));
     }
 
     const now = Date.now();

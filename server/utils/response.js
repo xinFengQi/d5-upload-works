@@ -1,6 +1,14 @@
 /**
  * API 响应格式化
  */
+
+/** 生产环境不向前端返回具体错误原因，仅打日志；开发环境可返回 err.message */
+function safeErrorMessage(err, defaultMessage = '操作失败') {
+  const isDev = process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development';
+  if (isDev && err && typeof err.message === 'string') return err.message;
+  return defaultMessage;
+}
+
 function createSuccessResponse(data, status = 200) {
   return {
     success: true,
@@ -39,4 +47,5 @@ module.exports = {
   createErrorResponse,
   createPaginatedResponse,
   sendJson,
+  safeErrorMessage,
 };

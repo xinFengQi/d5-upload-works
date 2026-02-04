@@ -83,7 +83,11 @@ CREATE TABLE IF NOT EXISTS screen_config (
   theme_json TEXT,
   max_votes_per_user INTEGER NOT NULL DEFAULT 1,
   judges_json TEXT,
+  vote_open_start INTEGER,
+  vote_open_end INTEGER,
+  score_open_start INTEGER,
+  score_open_end INTEGER,
   updated_at INTEGER NOT NULL
 );
-INSERT OR IGNORE INTO screen_config (id, grid_layout, theme_json, max_votes_per_user, judges_json, updated_at)
-VALUES (1, '2x2', '{"primaryColor":"#2563eb","primaryDark":"#1e40af","primaryLight":"#3b82f6","secondaryColor":"#64748b"}', 1, '[]', strftime('%s','now')*1000);
+INSERT OR IGNORE INTO screen_config (id, grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, updated_at)
+VALUES (1, '2x2', '{"primaryColor":"#2563eb","primaryDark":"#1e40af","primaryLight":"#3b82f6","secondaryColor":"#64748b"}', 1, '[]', NULL, NULL, NULL, NULL, strftime('%s','now')*1000);

@@ -16,7 +16,8 @@ function ensureDataDir() {
   }
 }
 
-function getDb() {
+/** 创建并返回新的数据库连接（内部使用，对外请用 getDb 单例） */
+function createConnection() {
   ensureDataDir();
   const db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -96,7 +97,7 @@ let dbInstance = null;
 
 function getDbInstance() {
   if (!dbInstance) {
-    dbInstance = getDb();
+    dbInstance = createConnection();
     initSchema(dbInstance);
   }
   return dbInstance;

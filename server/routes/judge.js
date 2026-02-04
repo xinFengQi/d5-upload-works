@@ -7,8 +7,10 @@ const router = express.Router();
 const { getDb } = require('../db');
 const { createSuccessResponse, createErrorResponse, createPaginatedResponse, sendJson } = require('../utils/response');
 const { requireJudge, requireAdminOrJudge } = require('../middleware/auth');
+const { normalizeWorkId } = require('../utils/validate');
 
 const MIN_SCORE = 1;
+const MAX_PAGE = 1000;
 const MAX_SCORE = 100;
 
 // 作品分类选项（空字符串表示未设置，后续可改为配置或环境变量）
@@ -28,10 +30,10 @@ function updateWorkJudgeScore(db, workId) {
 
 // 提交/更新评分
 router.post('/score', requireJudge, (req, res) => {
-  const workId = req.body?.workId;
+  const workId = normalizeWorkId(req.body?.workId);
   let score = req.body?.score;
-  if (workId == null || workId === '') {
-    return sendJson(res, createErrorResponse('workId is required', 'INVALID_REQUEST', 400));
+  if (!workId) {
+    return sendJson(res, createErrorResponse('workId is required or invalid', 'INVALID_REQUEST', 400));
   }
   score = Number(score);
   if (Number.isNaN(score) || score < MIN_SCORE || score > MAX_SCORE) {
@@ -78,10 +80,10 @@ router.get('/categories', requireJudge, (req, res) => {
 
 // 评委修改作品分类
 router.patch('/works/:workId/category', requireJudge, (req, res) => {
-  const workId = req.params.workId;
+  const workId = normalizeWorkId(req.params.workId);
   let category = req.body?.category;
-  if (workId == null || workId === '') {
-    return sendJson(res, createErrorResponse('workId is required', 'INVALID_REQUEST', 400));
+  if (!workId) {
+    return sendJson(res, createErrorResponse('workId is required or invalid', 'INVALID_REQUEST', 400));
   }
   if (category !== undefined && category !== null) {
     category = String(category).trim();
@@ -104,7 +106,7 @@ router.patch('/works/:workId/category', requireJudge, (req, res) => {
 // 评委评分列表：作品列表 + 评委评分（作品维度）+ 我的打分（管理员或评委可访问，管理员无 myScore）
 router.get('/works', requireAdminOrJudge, (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const page = Math.min(MAX_PAGE, Math.max(1, parseInt(req.query.page, 10) || 1));
     const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10) || 100));
     const judgeEmail = req.judgeEmail != null ? req.judgeEmail : '';
     const db = getDb();
@@ -138,9 +140,9 @@ router.get('/works', requireAdminOrJudge, (req, res) => {
 
 // 某作品的评委评分明细（管理员或评委可查看）
 router.get('/works/:workId/scores', requireAdminOrJudge, (req, res) => {
-  const workId = req.params.workId;
+  const workId = normalizeWorkId(req.params.workId);
   if (!workId) {
-    return sendJson(res, createErrorResponse('workId is required', 'INVALID_REQUEST', 400));
+    return sendJson(res, createErrorResponse('workId is required or invalid', 'INVALID_REQUEST', 400));
   }
   const db = getDb();
   const work = db.prepare('SELECT id FROM works WHERE id = ?').get(workId);

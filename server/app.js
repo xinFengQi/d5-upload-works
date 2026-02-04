@@ -50,11 +50,17 @@ app.use('/api/judge', judgeRoutes);
 // 生产环境：可挂载 frontend-vue/dist 提供静态 + SPA 回退（若与 Nginx 分离部署则可不挂载，由 Nginx 提供静态）
 if (!isDev) {
   const frontendPath = path.join(__dirname, '..', 'frontend-vue', 'dist');
+  const frontendResolved = path.resolve(frontendPath);
   app.use(express.static(frontendPath, { index: false }));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-    const file = path.join(frontendPath, req.path);
-    res.sendFile(file, (err) => {
+    const resolved = path.resolve(path.join(frontendPath, req.path));
+    // 防止路径穿越：仅允许访问 frontendPath 下的文件（含子目录，排除 dist2 等同级目录）
+    const allowed = resolved === frontendResolved || resolved.startsWith(frontendResolved + path.sep);
+    if (!allowed) {
+      return res.sendFile(path.join(frontendPath, 'index.html'));
+    }
+    res.sendFile(resolved, (err) => {
       if (err) res.sendFile(path.join(frontendPath, 'index.html'));
     });
   });

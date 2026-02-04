@@ -5,8 +5,8 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
 const { DingTalkService } = require('../services/dingtalk');
-const { generateToken } = require('../utils/crypto');
-const { createSuccessResponse, createErrorResponse, sendJson } = require('../utils/response');
+const { generateToken, timingSafeEqualStr } = require('../utils/crypto');
+const { createSuccessResponse, createErrorResponse, sendJson, safeErrorMessage } = require('../utils/response');
 
 const SESSION_TTL_SEC = 7 * 24 * 60 * 60; // 7 天
 const STATE_TTL_SEC = 600; // 10 分钟
@@ -98,20 +98,30 @@ router.get('/callback', async (req, res) => {
       return sendJson(res, createErrorResponse('Missing authCode parameter', 'INVALID_REQUEST', 400));
     }
 
+    const config = req.app.locals.config;
+    const isDev = isDevelopment(config, req);
+    // 生产环境必须带 state 并校验，防 CSRF（开发环境允许无 state 便于调试）
+    if (!isDev && (!state || typeof state !== 'string' || !state.trim())) {
+      return sendJson(res, createErrorResponse('Missing state parameter', 'INVALID_STATE', 400));
+    }
+
     const db = getDb();
     if (state) {
-      const row = db.prepare('SELECT 1 FROM auth_states WHERE state = ?').get(state);
+      const row = db.prepare('SELECT 1 FROM auth_states WHERE state = ?').get(state.trim());
       if (!row) {
         return sendJson(res, createErrorResponse('Invalid state parameter', 'INVALID_STATE', 400));
       }
-      db.prepare('DELETE FROM auth_states WHERE state = ?').run(state);
+      db.prepare('DELETE FROM auth_states WHERE state = ?').run(state.trim());
     }
 
     let userInfo;
-    const config = req.app.locals.config;
-    const isMock = isDevelopment(config, req);
+    const isMock = isDev;
 
+    // mock_code_ 仅允许在开发环境使用，避免生产环境被伪造登录
     if (authCode.startsWith('mock_code_')) {
+      if (!isMock) {
+        return sendJson(res, createErrorResponse('Invalid authCode', 'INVALID_REQUEST', 400));
+      }
       userInfo = generateMockUser(mockUserName ? decodeURIComponent(mockUserName) : undefined);
     } else {
       const dingtalk = new DingTalkService(config);
@@ -120,7 +130,7 @@ router.get('/callback', async (req, res) => {
         userInfo.role = 'user';
       } catch (err) {
         console.error('DingTalk getUserInfo error:', err);
-        return sendJson(res, createErrorResponse(`钉钉登录失败: ${err.message}`, 'CALLBACK_ERROR', 500));
+        return sendJson(res, createErrorResponse(safeErrorMessage(err, '钉钉登录失败'), 'CALLBACK_ERROR', 500));
       }
     }
 
@@ -149,7 +159,7 @@ router.get('/callback', async (req, res) => {
     res.redirect(302, redirectUrl.toString());
   } catch (err) {
     console.error('Auth callback error:', err);
-    sendJson(res, createErrorResponse(`Failed to complete login: ${err.message}`, 'CALLBACK_ERROR', 500));
+    sendJson(res, createErrorResponse(safeErrorMessage(err, '登录未能完成'), 'CALLBACK_ERROR', 500));
   }
 });
 
@@ -164,19 +174,28 @@ router.get('/exchange', async (req, res) => {
       return sendJson(res, createErrorResponse('Missing authCode or code parameter', 'INVALID_REQUEST', 400));
     }
 
+    const config = req.app.locals.config;
+    const isDev = isDevelopment(config, req);
+    if (!isDev && (!state || typeof state !== 'string' || !state.trim())) {
+      return sendJson(res, createErrorResponse('Missing state parameter', 'INVALID_STATE', 400));
+    }
+
     const db = getDb();
     if (state) {
-      const row = db.prepare('SELECT 1 FROM auth_states WHERE state = ?').get(state);
+      const row = db.prepare('SELECT 1 FROM auth_states WHERE state = ?').get(state.trim());
       if (!row) {
         return sendJson(res, createErrorResponse('Invalid state parameter', 'INVALID_STATE', 400));
       }
-      db.prepare('DELETE FROM auth_states WHERE state = ?').run(state);
+      db.prepare('DELETE FROM auth_states WHERE state = ?').run(state.trim());
     }
 
     let userInfo;
-    const config = req.app.locals.config;
+    const isMock = isDev;
 
     if (authCode.startsWith('mock_code_')) {
+      if (!isMock) {
+        return sendJson(res, createErrorResponse('Invalid authCode', 'INVALID_REQUEST', 400));
+      }
       userInfo = generateMockUser(mockUserName ? decodeURIComponent(mockUserName) : undefined);
     } else {
       const dingtalk = new DingTalkService(config);
@@ -185,7 +204,7 @@ router.get('/exchange', async (req, res) => {
         userInfo.role = 'user';
       } catch (err) {
         console.error('DingTalk getUserInfo error:', err);
-        return sendJson(res, createErrorResponse(`钉钉登录失败: ${err.message}`, 'CALLBACK_ERROR', 500));
+        return sendJson(res, createErrorResponse(safeErrorMessage(err, '钉钉登录失败'), 'CALLBACK_ERROR', 500));
       }
     }
 
@@ -219,7 +238,7 @@ router.get('/exchange', async (req, res) => {
     sendJson(res, createSuccessResponse({ token, user }));
   } catch (err) {
     console.error('Auth exchange error:', err);
-    sendJson(res, createErrorResponse(`登录失败: ${err.message}`, 'EXCHANGE_ERROR', 500));
+    sendJson(res, createErrorResponse(safeErrorMessage(err, '登录失败'), 'EXCHANGE_ERROR', 500));
   }
 });
 
@@ -265,7 +284,9 @@ router.get('/me', (req, res) => {
 
 // 管理员登录
 router.post('/admin', (req, res) => {
-  console.log('[auth] POST /admin 收到请求');
+  if (isDevelopment(req.app.locals.config, req)) {
+    console.log('[auth] POST /admin 收到请求');
+  }
   const password = req.body?.password;
   if (!password) {
     return sendJson(res, createErrorResponse('Missing password', 'INVALID_REQUEST', 400));
@@ -275,7 +296,7 @@ router.post('/admin', (req, res) => {
   if (envPassword === undefined || envPassword === '') {
     return sendJson(res, createErrorResponse('管理员密码未配置，请在 server/.env 中设置 ADMIN_PASSWORD 并重启服务', 'ADMIN_PASSWORD_NOT_SET', 500));
   }
-  if (password !== envPassword) {
+  if (!timingSafeEqualStr(password, envPassword)) {
     return sendJson(res, createErrorResponse('密码错误', 'INVALID_PASSWORD', 401));
   }
   const token = generateToken();

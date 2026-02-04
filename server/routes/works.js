@@ -7,11 +7,14 @@ const { getDb } = require('../db');
 const { OSSService } = require('../services/oss');
 const { createSuccessResponse, createErrorResponse, createPaginatedResponse, sendJson } = require('../utils/response');
 const { requireUser, requireAdmin } = require('../middleware/auth');
+const { normalizeWorkId } = require('../utils/validate');
+
+const MAX_PAGE = 1000;
 
 // 作品列表（分页）
 router.get('/', (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const page = Math.min(MAX_PAGE, Math.max(1, parseInt(req.query.page, 10) || 1));
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const db = getDb();
     const total = db.prepare('SELECT COUNT(*) AS c FROM works').get().c;
@@ -100,7 +103,10 @@ router.get('/by-award', (req, res) => {
 // 删除作品（仅管理员）
 router.delete('/:workId', requireAdmin, async (req, res) => {
   try {
-    const workId = req.params.workId;
+    const workId = normalizeWorkId(req.params.workId);
+    if (!workId) {
+      return sendJson(res, createErrorResponse('workId invalid', 'INVALID_REQUEST', 400));
+    }
     const db = getDb();
     const work = db.prepare('SELECT * FROM works WHERE id = ?').get(workId);
     if (!work) {
@@ -115,6 +121,8 @@ router.delete('/:workId', requireAdmin, async (req, res) => {
     }
 
     db.prepare('DELETE FROM votes WHERE work_id = ?').run(workId);
+    db.prepare('DELETE FROM judge_scores WHERE work_id = ?').run(workId);
+    db.prepare('DELETE FROM work_judge_score WHERE work_id = ?').run(workId);
     db.prepare('DELETE FROM works WHERE id = ?').run(workId);
 
     sendJson(res, createSuccessResponse({ success: true, message: '作品删除成功' }));
