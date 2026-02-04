@@ -1808,7 +1808,6 @@ body.index-page::before {
 }
 .index-page .page-header {
   text-align: center;
-  padding: 3rem 0;
   position: relative;
 }
 .index-page .page-header::before {
@@ -1858,6 +1857,70 @@ body.index-page::before {
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* 首页搜索框：标题与作品列表之间 */
+.index-page .home-search-wrap {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto 2.5rem;
+  max-width: 560px;
+  animation: fadeInUp 0.8s ease-out 0.3s both;
+}
+.index-page .home-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-primary);
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.25s ease, transform 0.2s ease;
+}
+.index-page .home-search-inner:focus-within {
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.18), 0 0 0 2px var(--primary-color);
+  transform: translateY(-2px);
+}
+.index-page .home-search-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  opacity: 0.6;
+  line-height: 1;
+}
+.index-page .home-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  color: var(--text-primary);
+  outline: none;
+}
+.index-page .home-search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+.index-page .home-search-clear {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.index-page .home-search-clear:hover {
+  background: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .masonry-grid {

@@ -34,6 +34,16 @@
         <div class="works-table-container">
           <div class="table-header">
             <h2 class="table-title">作品列表</h2>
+            <div class="score-filters">
+              <label class="score-filter-item">
+                <input v-model="filterMyUnscored" type="checkbox" class="score-filter-checkbox">
+                <span class="score-filter-label">仅显示我未评分的</span>
+              </label>
+              <label class="score-filter-item">
+                <input v-model="filterAllUnscored" type="checkbox" class="score-filter-checkbox">
+                <span class="score-filter-label">仅显示总的未评分的</span>
+              </label>
+            </div>
           </div>
           <div v-if="worksLoading" class="loading">
             <div class="spinner"></div>
@@ -42,6 +52,11 @@
           <div v-else-if="works.length === 0" class="empty-state">
             <div class="empty-state-icon">📭</div>
             <p>暂无作品</p>
+          </div>
+          <div v-else-if="sortedWorks.length === 0" class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <p>当前筛选下暂无作品</p>
+            <p class="empty-state-hint">可取消勾选上方筛选条件查看全部</p>
           </div>
           <template v-else>
             <div class="works-cards score-works-cards">
@@ -180,6 +195,10 @@ const canAccessScore = computed(() => isJudge.value || isAdmin.value);
 const isJudgeReady = ref(false);
 const works = ref([]);
 const worksLoading = ref(true);
+/** 仅显示我未评分的 */
+const filterMyUnscored = ref(false);
+/** 仅显示总的未评分的（没有任何评委打过分） */
+const filterAllUnscored = ref(false);
 const scoreModal = ref({ show: false, workId: null, title: '', creativityScore: null, artScore: null, saving: false });
 const previewWork = ref(null);
 const videoModalOpen = ref(false);
@@ -217,8 +236,15 @@ const scoreClosedTip = computed(() => {
   return '';
 });
 
+/** 根据两个筛选条件过滤后的作品列表 */
+const filteredWorks = computed(() => {
+  let list = works.value;
+  if (filterMyUnscored.value) list = list.filter((w) => w.myScore == null);
+  if (filterAllUnscored.value) list = list.filter((w) => (w.judgeCount ?? 0) === 0);
+  return list;
+});
 const sortedWorks = computed(() => {
-  return [...works.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return [...filteredWorks.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 });
 
 function formatScoreCell(value) {
@@ -385,6 +411,73 @@ onMounted(async () => {
 }
 .score-page .works-table-container {
   width: 100%;
+}
+
+/* 作品列表筛选：我未评分 / 总的未评分 */
+.score-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  align-items: center;
+}
+.score-filter-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.score-filter-item:hover {
+  border-color: var(--primary-color, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.score-filter-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary-color, #2563eb);
+  cursor: pointer;
+}
+.score-filter-label {
+  font-size: 0.9375rem;
+  color: var(--text-primary, #1f2937);
+}
+
+/* 移动端：标题与筛选垂直排布，避免挤压断行 */
+@media (max-width: 768px) {
+  .score-page .works-table-container .table-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .score-page .works-table-container .table-title {
+    margin: 0;
+    white-space: nowrap;
+    font-size: 1.125rem;
+  }
+  .score-page .score-filters {
+    margin-top: 0;
+    gap: 0.5rem;
+  }
+  .score-page .score-filter-item {
+    padding: 0.5rem 0.625rem;
+    flex: 1;
+    min-width: 0;
+  }
+  .score-page .score-filter-label {
+    font-size: 0.875rem;
+  }
+}
+.empty-state-hint {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
 }
 
 /* 小屏：卡片展示 */

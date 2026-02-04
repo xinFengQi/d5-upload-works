@@ -86,13 +86,36 @@
         <p class="page-tagline">进入心流之境，体验创作自由</p>
       </div>
 
+      <div class="home-search-wrap">
+        <div class="home-search-inner">
+          <span class="home-search-icon" aria-hidden="true">🔍</span>
+          <input
+            v-model.trim="searchKeyword"
+            type="search"
+            class="home-search-input"
+            placeholder="按作品名称或创作者搜索…"
+            autocomplete="off"
+            aria-label="搜索作品"
+          >
+          <button
+            v-if="searchKeyword"
+            type="button"
+            class="home-search-clear"
+            aria-label="清空"
+            @click="searchKeyword = ''"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
       <div v-if="loading" class="loading active">
         <div class="spinner"></div>
         <p style="margin-top: 1rem; color: var(--text-secondary);">加载中...</p>
       </div>
 
       <div class="masonry-grid" ref="gridRef">
-        <div v-for="w in works" :key="w.id" class="masonry-item">
+        <div v-for="w in filteredWorks" :key="w.id" class="masonry-item">
           <div class="work-card">
             <WorkVideoPreview :work="w" variant="card" @preview="openVideoPreview(w)" />
             <div class="work-content">
@@ -136,6 +159,11 @@
         <div class="empty-state-icon">🎬</div>
         <h3>暂无作品</h3>
         <p>成为第一个释放想象力的人吧！</p>
+      </div>
+      <div v-else-if="!loading && filteredWorks.length === 0" class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3>未找到匹配作品</h3>
+        <p>试试其他关键词，或清空搜索查看全部</p>
       </div>
     </main>
 
@@ -218,6 +246,17 @@ const { user, isLoggedIn, isAdmin, isJudge, setToken, checkAuth, logout } = useA
 
 const loading = ref(true);
 const works = ref([]);
+const searchKeyword = ref('');
+/** 按作品名称、创作者模糊筛选（当前页数据） */
+const filteredWorks = computed(() => {
+  const kw = (searchKeyword.value || '').trim().toLowerCase();
+  if (!kw) return works.value;
+  return works.value.filter((w) => {
+    const title = (w.title || '').toLowerCase();
+    const creator = (w.creatorName || '').toLowerCase();
+    return title.includes(kw) || creator.includes(kw);
+  });
+});
 const userVoteCount = ref(0);
 /** 每人最多投票数（从管理员配置读取，1–100，所有人包括管理员均受此限制） */
 const maxVotesPerUser = ref(1);
