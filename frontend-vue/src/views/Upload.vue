@@ -27,6 +27,7 @@
               placeholder="请输入作品标题"
               maxlength="200"
               required
+              @input="title = (title || '').slice(0, 200)"
             >
             <div class="form-hint">剩余 {{ 200 - title.length }} 字</div>
           </div>
@@ -39,6 +40,7 @@
               placeholder="请输入作品描述（选填）"
               maxlength="500"
               rows="4"
+              @input="description = (description || '').slice(0, 500)"
             ></textarea>
             <div class="form-hint">剩余 {{ 500 - description.length }} 字</div>
           </div>

@@ -18,6 +18,7 @@ const upload = multer({
 });
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
 
+const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 500;
 
 /** 获取 STS 临时凭证（前端直传 OSS 使用） */
@@ -50,6 +51,9 @@ router.post('/complete', requireUser, express.json(), async (req, res) => {
 
     if (!title) {
       return sendJson(res, createErrorResponse('Title is required', 'NO_TITLE', 400));
+    }
+    if (title.length > MAX_TITLE_LENGTH) {
+      return sendJson(res, createErrorResponse(`标题最多 ${MAX_TITLE_LENGTH} 字`, 'TITLE_TOO_LONG', 400));
     }
     if (description != null && description.length > MAX_DESCRIPTION_LENGTH) {
       return sendJson(res, createErrorResponse(`描述最多 ${MAX_DESCRIPTION_LENGTH} 字`, 'DESCRIPTION_TOO_LONG', 400));
@@ -135,6 +139,9 @@ router.post('/', requireUser, upload.single('file'), async (req, res) => {
     }
     if (!title) {
       return sendJson(res, createErrorResponse('Title is required', 'NO_TITLE', 400));
+    }
+    if (title.length > MAX_TITLE_LENGTH) {
+      return sendJson(res, createErrorResponse(`标题最多 ${MAX_TITLE_LENGTH} 字`, 'TITLE_TOO_LONG', 400));
     }
     if (description != null && description.length > MAX_DESCRIPTION_LENGTH) {
       return sendJson(res, createErrorResponse(`描述最多 ${MAX_DESCRIPTION_LENGTH} 字`, 'DESCRIPTION_TOO_LONG', 400));
