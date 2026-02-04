@@ -14,7 +14,7 @@
           </div>
           <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
           <router-link to="/upload" class="btn btn-primary">上传作品</router-link>
-          <div class="nav-menu-dropdown">
+          <div v-if="isAdmin" class="nav-menu-dropdown">
             <button type="button" class="btn btn-outline" :class="{ active: showVoteResultDropdown }" @click="toggleVoteResultDropdown" @blur="onVoteResultDropdownBlur">
               投票结果 ▾
             </button>
@@ -61,7 +61,7 @@
         </div>
         <button v-else type="button" class="btn btn-outline" @click="goLogin">登录</button>
         <router-link to="/upload" class="btn btn-primary" @click="closeSideMenu">上传作品</router-link>
-        <div class="side-menu-group">
+        <div v-if="isAdmin" class="side-menu-group">
           <div class="side-menu-group-title">投票结果</div>
           <router-link to="/vote-result?type=popular" class="btn btn-outline" @click="closeSideMenu">特别奖项</router-link>
           <router-link to="/main-awards" class="btn btn-outline" @click="closeSideMenu">主奖项</router-link>

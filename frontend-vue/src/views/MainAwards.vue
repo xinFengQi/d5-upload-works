@@ -96,11 +96,15 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import WorkVideoPreview from '../components/WorkVideoPreview.vue';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
 import { getWorksByJudgeRank } from '../api/works';
 import { getScreenConfig } from '../api/screenConfig';
+import { useAuth } from '../composables/useAuth';
 
+const router = useRouter();
+const { checkAuth, isAdmin } = useAuth();
 const loading = ref(true);
 const videoModalOpen = ref(false);
 const previewWork = ref(null);
@@ -215,6 +219,11 @@ function handleWheel(e) {
 }
 
 onMounted(async () => {
+  await checkAuth();
+  if (!isAdmin.value) {
+    router.replace('/');
+    return;
+  }
   document.body.classList.add('main-awards-page');
   await loadTheme();
   await load();

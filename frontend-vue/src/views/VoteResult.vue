@@ -68,13 +68,16 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import WorkVideoPreview from '../components/WorkVideoPreview.vue';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
 import { getWorksByAward } from '../api/works';
 import { getScreenConfig } from '../api/screenConfig';
+import { useAuth } from '../composables/useAuth';
 
 const route = useRoute();
+const router = useRouter();
+const { checkAuth, isAdmin } = useAuth();
 const loading = ref(true);
 const videoModalOpen = ref(false);
 const previewWork = ref(null);
@@ -173,6 +176,11 @@ async function load() {
 watch(awardType, () => { load(); });
 
 onMounted(async () => {
+  await checkAuth();
+  if (!isAdmin.value) {
+    router.replace('/');
+    return;
+  }
   document.body.classList.add('vote-result-page');
   await loadTheme();
   await load();
