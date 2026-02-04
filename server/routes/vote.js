@@ -81,37 +81,43 @@ router.post('/', (req, res) => {
 });
 
 // 取消投票（仅在投票开放时间内允许，与投票规则一致）
+// 接口：DELETE /api/vote?workId=作品ID，需登录，返回 { success: true, data: { success: true, voteCount } }
 router.delete('/', (req, res) => {
-  const user = getSessionUser(req);
-  if (!user) {
-    return sendJson(res, createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401));
-  }
-  const workId = normalizeWorkId(req.query.workId);
-  if (!workId) {
-    return sendJson(res, createErrorResponse('workId is required or invalid', 'INVALID_REQUEST', 400));
-  }
+  try {
+    const user = getSessionUser(req);
+    if (!user) {
+      return sendJson(res, createErrorResponse('Unauthorized', 'UNAUTHORIZED', 401));
+    }
+    const workId = normalizeWorkId(req.query.workId);
+    if (!workId) {
+      return sendJson(res, createErrorResponse('workId is required or invalid', 'INVALID_REQUEST', 400));
+    }
 
-  const db = getDb();
-  const configRow = db.prepare(
-    'SELECT vote_open_start, vote_open_end FROM screen_config WHERE id = 1'
-  ).get();
-  const voteStart = configRow?.vote_open_start != null ? Number(configRow.vote_open_start) : null;
-  const voteEnd = configRow?.vote_open_end != null ? Number(configRow.vote_open_end) : null;
-  const now = Date.now();
-  if (voteStart != null && now < voteStart) {
-    return sendJson(res, createErrorResponse('当前不在投票开放时间内', 'VOTE_NOT_OPEN', 403));
-  }
-  if (voteEnd != null && now > voteEnd) {
-    return sendJson(res, createErrorResponse('当前不在投票开放时间内', 'VOTE_NOT_OPEN', 403));
-  }
+    const db = getDb();
+    const configRow = db.prepare(
+      'SELECT vote_open_start, vote_open_end FROM screen_config WHERE id = 1'
+    ).get();
+    const voteStart = configRow?.vote_open_start != null ? Number(configRow.vote_open_start) : null;
+    const voteEnd = configRow?.vote_open_end != null ? Number(configRow.vote_open_end) : null;
+    const now = Date.now();
+    if (voteStart != null && now < voteStart) {
+      return sendJson(res, createErrorResponse('当前不在投票开放时间内', 'VOTE_NOT_OPEN', 403));
+    }
+    if (voteEnd != null && now > voteEnd) {
+      return sendJson(res, createErrorResponse('当前不在投票开放时间内', 'VOTE_NOT_OPEN', 403));
+    }
 
-  const result = db.prepare('DELETE FROM votes WHERE work_id = ? AND user_id = ?').run(workId, user.userid);
-  const voteCount = db.prepare('SELECT COUNT(*) AS c FROM votes WHERE work_id = ?').get(workId).c;
+    const result = db.prepare('DELETE FROM votes WHERE work_id = ? AND user_id = ?').run(workId, user.userid);
+    const voteCount = db.prepare('SELECT COUNT(*) AS c FROM votes WHERE work_id = ?').get(workId).c;
 
-  if (result.changes === 0) {
-    return sendJson(res, createErrorResponse('Vote not found', 'NOT_FOUND', 404));
+    if (result.changes === 0) {
+      return sendJson(res, createErrorResponse('未找到投票记录或已取消', 'NOT_FOUND', 404));
+    }
+    sendJson(res, createSuccessResponse({ success: true, voteCount }));
+  } catch (err) {
+    console.error('Cancel vote error:', err);
+    sendJson(res, createErrorResponse('取消投票失败', 'INTERNAL_ERROR', 500));
   }
-  sendJson(res, createSuccessResponse({ success: true, voteCount }));
 });
 
 // 用户已投票数量

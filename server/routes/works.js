@@ -6,12 +6,12 @@ const router = express.Router();
 const { getDb } = require('../db');
 const { OSSService } = require('../services/oss');
 const { createSuccessResponse, createErrorResponse, createPaginatedResponse, sendJson } = require('../utils/response');
-const { requireUser, requireAdmin } = require('../middleware/auth');
+const { requireUser, requireAdmin, getSessionUser } = require('../middleware/auth');
 const { normalizeWorkId } = require('../utils/validate');
 
 const MAX_PAGE = 1000;
 
-// 作品列表（分页）
+// 作品列表（分页）。带 Authorization 时返回每条的 hasVoted，避免前端 N 次 stats 请求
 router.get('/', (req, res) => {
   try {
     const page = Math.min(MAX_PAGE, Math.max(1, parseInt(req.query.page, 10) || 1));
@@ -26,10 +26,17 @@ router.get('/', (req, res) => {
       LEFT JOIN (SELECT work_id, COUNT(*) AS cnt FROM votes GROUP BY work_id) v ON w.id = v.work_id
       ORDER BY w.created_at DESC LIMIT ? OFFSET ?
     `).all(limit, (page - 1) * limit);
+    let votedWorkIds = new Set();
+    const currentUser = getSessionUser(req);
+    if (currentUser) {
+      const voted = db.prepare('SELECT work_id FROM votes WHERE user_id = ?').all(currentUser.userid);
+      votedWorkIds = new Set(voted.map((r) => r.work_id));
+    }
     const items = rows.map((r) => ({
       ...r,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      hasVoted: votedWorkIds.has(r.id),
     }));
     sendJson(res, createPaginatedResponse(items, total, page, limit));
   } catch (err) {

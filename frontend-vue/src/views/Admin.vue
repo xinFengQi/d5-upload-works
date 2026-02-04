@@ -140,22 +140,58 @@
                   <span class="config-open-time-label">投票开放</span>
                   <div class="config-form-group">
                     <label class="config-label">开始时间</label>
-                    <input v-model="voteOpenStartInput" type="datetime-local" class="config-input">
+                    <VueDatePicker
+                      v-model="voteOpenStartTs"
+                      model-type="timestamp"
+                      :enable-time-picker="true"
+                      :is24="true"
+                      :locale="zhCN"
+                      placeholder="选择日期时间，留空不限制"
+                      class="config-datetime-picker"
+                      auto-apply
+                    />
                   </div>
                   <div class="config-form-group">
                     <label class="config-label">结束时间</label>
-                    <input v-model="voteOpenEndInput" type="datetime-local" class="config-input">
+                    <VueDatePicker
+                      v-model="voteOpenEndTs"
+                      model-type="timestamp"
+                      :enable-time-picker="true"
+                      :is24="true"
+                      :locale="zhCN"
+                      placeholder="选择日期时间，留空不限制"
+                      class="config-datetime-picker"
+                      auto-apply
+                    />
                   </div>
                 </div>
                 <div class="config-open-time-row">
                   <span class="config-open-time-label">评分开放</span>
                   <div class="config-form-group">
                     <label class="config-label">开始时间</label>
-                    <input v-model="scoreOpenStartInput" type="datetime-local" class="config-input">
+                    <VueDatePicker
+                      v-model="scoreOpenStartTs"
+                      model-type="timestamp"
+                      :enable-time-picker="true"
+                      :is24="true"
+                      :locale="zhCN"
+                      placeholder="选择日期时间，留空不限制"
+                      class="config-datetime-picker"
+                      auto-apply
+                    />
                   </div>
                   <div class="config-form-group">
                     <label class="config-label">结束时间</label>
-                    <input v-model="scoreOpenEndInput" type="datetime-local" class="config-input">
+                    <VueDatePicker
+                      v-model="scoreOpenEndTs"
+                      model-type="timestamp"
+                      :enable-time-picker="true"
+                      :is24="true"
+                      :locale="zhCN"
+                      placeholder="选择日期时间，留空不限制"
+                      class="config-datetime-picker"
+                      auto-apply
+                    />
                   </div>
                 </div>
               </div>
@@ -335,6 +371,9 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkVideoPreview from '../components/WorkVideoPreview.vue';
+import { VueDatePicker } from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css';
+import { zhCN } from 'date-fns/locale';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
 import request from '../api/request';
 import { getWorks, deleteWork } from '../api/works';
@@ -370,10 +409,11 @@ const themeFields = [
 ];
 const themeMessage = ref('');
 const configMessage = ref('');
-const voteOpenStartInput = ref('');
-const voteOpenEndInput = ref('');
-const scoreOpenStartInput = ref('');
-const scoreOpenEndInput = ref('');
+// 使用 @vuepic/vue-datepicker，兼容 H5 与 PC
+const voteOpenStartTs = ref(null);
+const voteOpenEndTs = ref(null);
+const scoreOpenStartTs = ref(null);
+const scoreOpenEndTs = ref(null);
 const openTimeMessage = ref('');
 const toast = reactive({ show: false, type: 'success', icon: '✓', message: '' });
 const deleteModal = reactive({ show: false, id: null, title: '', loading: false });
@@ -473,23 +513,6 @@ async function loadWorksList() {
   }
 }
 
-function tsToDatetimeLocal(ts) {
-  if (ts == null || ts === '') return '';
-  const d = new Date(Number(ts));
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${day}T${h}:${min}`;
-}
-function datetimeLocalToTs(s) {
-  if (s == null || String(s).trim() === '') return null;
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d.getTime();
-}
-
 async function loadScreenConfigData() {
   try {
     const res = await getScreenConfig();
@@ -497,10 +520,10 @@ async function loadScreenConfigData() {
       gridLayout.value = res.data.gridLayout || '2x2';
       maxVotesPerUser.value = res.data.maxVotesPerUser != null ? Number(res.data.maxVotesPerUser) : 1;
       judges.value = Array.isArray(res.data.judges) ? [...res.data.judges] : [];
-      voteOpenStartInput.value = tsToDatetimeLocal(res.data.voteOpenStart);
-      voteOpenEndInput.value = tsToDatetimeLocal(res.data.voteOpenEnd);
-      scoreOpenStartInput.value = tsToDatetimeLocal(res.data.scoreOpenStart);
-      scoreOpenEndInput.value = tsToDatetimeLocal(res.data.scoreOpenEnd);
+      voteOpenStartTs.value = res.data.voteOpenStart ?? null;
+      voteOpenEndTs.value = res.data.voteOpenEnd ?? null;
+      scoreOpenStartTs.value = res.data.scoreOpenStart ?? null;
+      scoreOpenEndTs.value = res.data.scoreOpenEnd ?? null;
       const t = res.data.theme;
       if (t) {
         if (t.primaryColor) theme.primaryColor = t.primaryColor;
@@ -514,10 +537,10 @@ async function loadScreenConfigData() {
 }
 
 function saveOpenTimeConfig() {
-  const vs = datetimeLocalToTs(voteOpenStartInput.value);
-  const ve = datetimeLocalToTs(voteOpenEndInput.value);
-  const ss = datetimeLocalToTs(scoreOpenStartInput.value);
-  const se = datetimeLocalToTs(scoreOpenEndInput.value);
+  const vs = voteOpenStartTs.value ?? null;
+  const ve = voteOpenEndTs.value ?? null;
+  const ss = scoreOpenStartTs.value ?? null;
+  const se = scoreOpenEndTs.value ?? null;
   if (vs != null && ve != null && vs > ve) {
     showToast('投票开始时间不能晚于结束时间', 'error');
     return;
@@ -874,7 +897,7 @@ onMounted(async () => {
 .config-open-time-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 1rem;
   padding: 1rem;
   background: var(--bg-secondary);
@@ -887,11 +910,66 @@ onMounted(async () => {
   font-size: 0.9375rem;
   color: var(--text-primary);
   min-width: 5rem;
-  padding-bottom: 0.25rem;
 }
 .config-open-time-row .config-form-group {
   flex: 1;
   min-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.config-open-time-row .config-form-group .config-label {
+  flex-shrink: 0;
+}
+.config-open-time-row .config-form-group .config-input {
+  flex: 1;
+  min-width: 0;
+}
+/* @vuepic/vue-datepicker 与表单对齐 */
+.config-datetime-picker {
+  flex: 1;
+  min-width: 0;
+}
+.config-datetime-picker .dp__input {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--border-color);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+.config-datetime-picker .dp__input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+@media (max-width: 768px) {
+  .config-datetime-picker .dp__input {
+    min-height: 2.75rem;
+  }
+}
+/* 保留：若其他地方仍用 date+time 原生输入 */
+.config-datetime-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+.config-datetime-fields .config-input-date {
+  flex: 1;
+  min-width: 0;
+}
+.config-datetime-fields .config-input-time {
+  flex: 0 0 auto;
+  min-width: 6rem;
+}
+@media (max-width: 768px) {
+  .config-datetime-fields {
+    flex-wrap: wrap;
+  }
+  .config-datetime-fields .config-input-date,
+  .config-datetime-fields .config-input-time {
+    min-height: 2.75rem; /* 约 44px，便于触控 */
+  }
 }
 @media (max-width: 768px) {
   .config-open-time-row .config-form-group {

@@ -17,7 +17,7 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - D5 Works` : 'D5 Works';
+  document.title = to.meta.title ? `${to.meta.title}` : '2026年会作品投票';
   const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
   if (to.meta.auth && !token) {
     next({ name: 'Login', query: { redirect: to.fullPath } });

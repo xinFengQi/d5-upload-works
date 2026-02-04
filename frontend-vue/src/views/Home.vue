@@ -105,7 +105,19 @@
               </div>
               <div class="work-footer">
                 <div class="work-votes"><span>{{ w.voteCount ?? 0 }}</span></div>
+                <div v-if="w.hasVoted && isVoteOpen" class="work-vote-done">
+                  <span class="vote-status-text">已投票</span>
+                  <button
+                    type="button"
+                    class="vote-btn-cancel-text"
+                    title="取消投票"
+                    @click.stop="openCancelConfirm(w)"
+                  >
+                    取消投票
+                  </button>
+                </div>
                 <button
+                  v-else
                   type="button"
                   :class="['vote-btn', w.hasVoted && 'voted', w.isOwner && 'own-work']"
                   :disabled="w.hasVoted || w.isOwner || !isVoteOpen || (userVoteCount >= maxVotesPerUser && !w.hasVoted && !w.isOwner)"
@@ -128,6 +140,47 @@
     </main>
 
     <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
+
+    <!-- 取消投票二次确认弹框 -->
+    <Teleport to="body">
+      <Transition name="cancel-confirm-fade">
+        <div
+          v-show="cancelConfirm.show"
+          class="cancel-confirm-overlay"
+          @click.self="closeCancelConfirm"
+        >
+          <div class="cancel-confirm-card">
+            <div class="cancel-confirm-icon-wrap">
+              <span class="cancel-confirm-icon" aria-hidden="true">♥</span>
+              <span class="cancel-confirm-icon cancel-confirm-icon-slash" aria-hidden="true">／</span>
+            </div>
+            <h3 class="cancel-confirm-title">取消投票</h3>
+            <p class="cancel-confirm-desc">
+              确定要取消对<span class="cancel-confirm-work-title">《{{ cancelConfirm.work?.title || '该作品' }}》</span>的投票吗？取消后可以重新投票给其他作品。
+            </p>
+            <div class="cancel-confirm-actions">
+              <button
+                type="button"
+                class="cancel-confirm-btn cancel-confirm-btn-ghost"
+                :disabled="cancelConfirm.loading"
+                @click="closeCancelConfirm"
+              >
+                再想想
+              </button>
+              <button
+                type="button"
+                class="cancel-confirm-btn cancel-confirm-btn-danger"
+                :disabled="cancelConfirm.loading"
+                @click="confirmCancelVote"
+              >
+                <span v-if="cancelConfirm.loading" class="cancel-confirm-spinner"></span>
+                <span v-else>确定取消</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <div class="tip-modal" :class="{ active: tipModal.show }" @click.self="closeTipModal">
       <div class="tip-modal-content">
@@ -155,7 +208,7 @@ import WorkVideoPreview from '../components/WorkVideoPreview.vue';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
 import { useAuth } from '../composables/useAuth';
 import { getWorks } from '../api/works';
-import { getVoteStats, getUserVoteCount, vote as apiVote } from '../api/vote';
+import { getUserVoteCount, vote as apiVote, cancelVote as apiCancelVote } from '../api/vote';
 import { getScreenConfig } from '../api/screenConfig';
 import { exchangeCode } from '../api/auth';
 
@@ -212,6 +265,48 @@ function applyTheme(theme) {
   const pd = theme.primaryDark || '#1e40af';
   const pc = theme.primaryColor || '#2563eb';
   root.style.setProperty('--gradient', `linear-gradient(135deg, ${pd} 0%, ${pc} 100%)`);
+}
+
+/** 取消投票二次确认弹框 */
+const cancelConfirm = reactive({
+  show: false,
+  work: null,
+  loading: false,
+});
+function openCancelConfirm(work) {
+  if (!work?.id || !work?.hasVoted) return;
+  cancelConfirm.work = work;
+  cancelConfirm.show = true;
+  cancelConfirm.loading = false;
+}
+function closeCancelConfirm() {
+  if (cancelConfirm.loading) return;
+  cancelConfirm.show = false;
+  cancelConfirm.work = null;
+}
+async function confirmCancelVote() {
+  const w = cancelConfirm.work;
+  if (!w?.id) return;
+  cancelConfirm.loading = true;
+  try {
+    const res = await apiCancelVote(w.id);
+    if (res.success) {
+      await loadWorks({ silent: true });
+      cancelConfirm.loading = false;
+      closeCancelConfirm();
+      showTipModal('已取消投票，可以重新投票给其他作品', 'success', '取消成功');
+    } else {
+      cancelConfirm.loading = false;
+      closeCancelConfirm();
+      showTipModal(res.error?.message || '取消失败', 'error', '取消失败');
+    }
+  } catch {
+    cancelConfirm.loading = false;
+    closeCancelConfirm();
+    showTipModal('取消失败，请重试', 'error', '取消失败');
+  } finally {
+    cancelConfirm.loading = false;
+  }
 }
 
 const tipModal = reactive({
@@ -328,36 +423,29 @@ async function handleLogout() {
   await logout();
 }
 
-function toDisplayItem(work, stats) {
+/** 作品列表项：后端已返回 voteCount、hasVoted，此处只补 isOwner */
+function toDisplayItem(work) {
   return {
-    id: work.id,
-    fileUrl: work.fileUrl,
-    title: work.title,
-    description: work.description,
-    creatorName: work.creatorName,
-    creatorAvatar: work.creatorAvatar,
-    userId: work.userId,
-    voteCount: (stats?.success && stats?.data) ? (stats.data.voteCount ?? work.voteCount) : (work.voteCount ?? 0),
-    hasVoted: (stats?.success && stats?.data) ? !!stats.data.hasVoted : false,
+    ...work,
+    voteCount: work.voteCount ?? 0,
+    hasVoted: !!work.hasVoted,
     isOwner: user.value && work.userId === user.value.userid,
   };
 }
 
-async function loadWorks() {
+/** @param {{ silent?: boolean }} opts - silent 为 true 时不显示全屏 loading（用于投票/取消投票后刷新） */
+async function loadWorks(opts = {}) {
   const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-  loading.value = true;
+  if (!opts.silent) loading.value = true;
   try {
     const worksData = await getWorks({ page: 1, limit: 100 });
     const items = worksData?.data?.items ?? [];
     if (!worksData?.success || !Array.isArray(items) || items.length === 0) {
       works.value = [];
-      loading.value = false; // 明确在空数据时解除加载状态
       return;
     }
     if (!token) userVoteCount.value = 0;
-    const initialWorks = items.map((w) => toDisplayItem(w, null));
-    works.value = initialWorks;
-    loading.value = false;
+    works.value = items.map((w) => toDisplayItem(w));
 
     if (token) {
       try {
@@ -366,20 +454,11 @@ async function loadWorks() {
       } catch {
         userVoteCount.value = 0;
       }
-      const statsList = await Promise.all(
-        items.map((work) =>
-          getVoteStats(work.id)
-            .then((stats) => toDisplayItem(work, stats))
-            .catch(() => toDisplayItem(work, null))
-        )
-      );
-      works.value = statsList;
     }
   } catch {
     works.value = [];
-    loading.value = false; // 明确在错误时解除加载状态
   } finally {
-    loading.value = false;
+    if (!opts.silent) loading.value = false;
   }
 }
 
@@ -412,8 +491,7 @@ async function handleVote(w) {
   try {
     const res = await apiVote(w.id);
     if (res.success) {
-      userVoteCount.value++;
-      await loadWorks();
+      await loadWorks({ silent: true });
     } else {
       showTipModal(res.error?.message || '投票失败', 'error', '投票失败');
     }
@@ -471,6 +549,163 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 取消投票二次确认弹框 */
+.cancel-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.cancel-confirm-fade-enter-active,
+.cancel-confirm-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.cancel-confirm-fade-enter-active .cancel-confirm-card,
+.cancel-confirm-fade-leave-active .cancel-confirm-card {
+  transition: transform 0.25s ease;
+}
+.cancel-confirm-fade-enter-from,
+.cancel-confirm-fade-leave-to {
+  opacity: 0;
+}
+.cancel-confirm-fade-enter-from .cancel-confirm-card,
+.cancel-confirm-fade-leave-to .cancel-confirm-card {
+  transform: scale(0.95) translateY(-8px);
+}
+.cancel-confirm-card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  text-align: center;
+}
+.cancel-confirm-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 1rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+.cancel-confirm-icon {
+  font-size: 1.75rem;
+  color: #ef4444;
+  line-height: 1;
+}
+.cancel-confirm-icon-slash {
+  position: absolute;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #dc2626;
+  transform: rotate(-25deg);
+}
+.cancel-confirm-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.5rem;
+}
+.cancel-confirm-desc {
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 1.5rem;
+}
+.cancel-confirm-work-title {
+  color: var(--primary-color, #2563eb);
+  font-weight: 600;
+}
+.cancel-confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.cancel-confirm-btn {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+}
+.cancel-confirm-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.cancel-confirm-btn-ghost {
+  background: #f1f5f9;
+  color: #475569;
+}
+.cancel-confirm-btn-ghost:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+.cancel-confirm-btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+}
+.cancel-confirm-btn-danger:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+.cancel-confirm-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cancelConfirmSpin 0.7s linear infinite;
+}
+@keyframes cancelConfirmSpin {
+  to { transform: rotate(360deg); }
+}
+/* 已投票 + 取消投票 一组 */
+.work-vote-done {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.vote-status-text {
+  padding: 0.5rem 0.75rem;
+  border-radius: 2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+.vote-btn-cancel-text {
+  padding: 0.5rem 0.75rem;
+  border-radius: 2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.vote-btn-cancel-text:hover {
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .tip-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 2rem; }
 .tip-modal.active { display: flex; }
 .tip-modal-content { background: white; border-radius: 1rem; padding: 2rem; max-width: 400px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; animation: tipSlideUp 0.3s ease-out; }

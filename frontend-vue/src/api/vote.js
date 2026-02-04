@@ -5,6 +5,11 @@ export function vote(workId) {
   return request.post('/api/vote', { workId }).then((res) => res.data);
 }
 
+/** 取消投票 */
+export function cancelVote(workId) {
+  return request.delete('/api/vote', { params: { workId } }).then((res) => res.data);
+}
+
 /** 当前用户已投票数 */
 export function getUserVoteCount() {
   return request.get('/api/vote/user/count').then((res) => res.data);
