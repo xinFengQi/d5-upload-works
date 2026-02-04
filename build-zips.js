@@ -47,10 +47,11 @@ function zipDirectory(sourceDir, outPath, dataFn) {
     process.exit(1);
   }
 
-  console.log('[3/3] 压缩 server 内容为 zip（排除 node_modules、.env）...');
+  console.log('[3/3] 压缩 server 内容为 zip（排除 node_modules、data、.env）...');
   const serverSize = await zipDirectory(serverDir, serverZip, (entryData) => {
     const n = entryData.name;
     if (n.includes('node_modules')) return false;
+    if (n === 'data' || n.startsWith('data/')) return false;
     if (n === '.env' || n.startsWith('.env.') || n.includes('/.env') || n.endsWith('/.env')) return false;
     return entryData;
   });
