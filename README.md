@@ -1,6 +1,6 @@
 # 作品上传与投票系统
 
-基于 **Node.js + Express + SQLite** 的作品上传与投票系统，支持钉钉登录、阿里云 OSS 文件存储、投票统计和多屏播放。前端为静态 HTML/JS，由 Node 或 Nginx 提供。
+基于 **Node.js + Express + SQLite** 的作品上传与投票系统，支持钉钉登录、阿里云 OSS 文件存储、投票统计、评委评分和多屏播放。前端为 **Vue 3 + Vite** 单页应用，构建后由 Node 或 Nginx 提供。
 
 ## 技术栈
 
@@ -8,13 +8,14 @@
 - **数据库**: SQLite（better-sqlite3），数据文件 `server/data/app.db`
 - **文件存储**: 阿里云 OSS（REST API）
 - **认证**: 钉钉 OAuth 2.0
-- **前端**: 静态 HTML/CSS/JS（`frontend/public/`）
+- **前端**: Vue 3 + Vite，构建产物在 `frontend-vue/dist/`，由 Node 或 Nginx 提供
 
 ## 目录结构
 
 ```
-├── server/           # Node 服务端（API + 开发时静态）
-├── frontend/public/  # 静态前端页面
+├── server/           # Node 服务端（API + 可提供前端静态）
+├── frontend-vue/     # Vue 前端（需 npm run build 后由 server 或 Nginx 提供 dist）
+├── ecosystem.config.cjs  # PM2 配置（在项目根目录）
 ├── package.json
 └── README.md
 ```
@@ -71,12 +72,13 @@ npm start
 - **数据持久化**：`server/data/` 必须放在持久化存储（挂载卷），否则重新部署会丢失数据。
 - **生产环境**：建议 Nginx 提供静态资源，并将 `/api`、`/auth` 反向代理到 Node（默认 8080）。示例配置见 `server/DEPLOY.md`。
 
-## 主要接口
+## 主要接口（均以 `/api` 为前缀，除健康检查外）
 
-- 认证：`/auth/dingtalk`、`/auth/callback`、`/auth/me`、`POST /auth/admin`、`POST /auth/logout`
-- 上传：`POST /api/upload`（需登录）
-- 作品：`GET /api/works`、`GET /api/works/top`、`DELETE /api/works/:workId`（管理员）
-- 投票：`POST /api/vote`、`DELETE /api/vote`、`GET /api/vote/stats`、`GET /api/vote/user/count`、`GET /api/vote/users`（管理员）
-- 大屏配置：`GET /api/screen-config`、`POST /api/screen-config`（管理员）
+- **认证**：`GET /api/auth/dingtalk`、`GET /api/auth/callback`、`GET /api/auth/exchange`、`GET /api/auth/me`、`POST /api/auth/admin`、`POST /api/auth/logout`
+- **上传**：`GET /api/upload/sts-credentials`、`POST /api/upload/complete`、`POST /api/upload`（需登录，文件上限 1GB）
+- **作品**：`GET /api/works`、`GET /api/works/top`、`DELETE /api/works/:workId`（管理员）
+- **投票**：`POST /api/vote`、`DELETE /api/vote`、`GET /api/vote/stats`、`GET /api/vote/user/count`、`GET /api/vote/users`（管理员）；受「投票开放时间」与「每人最多投票数」配置限制（管理员与普通用户一视同仁）
+- **大屏配置**：`GET /api/screen-config`、`POST /api/screen-config`（管理员）；含投票/评分开放时间、每人最多投票数、评委列表、主题等
+- **评委/评分**：`POST /api/judge/score`（评委）、`GET /api/judge/works`、`GET /api/judge/works/:workId/scores`（评委或管理员）、`GET /api/judge/my-scores`、`GET /api/judge/categories` 等
 
 更多说明见 `server/README.md` 与 `server/DEPLOY.md`。

@@ -1,19 +1,19 @@
 ---
-description: "作品上传系统项目概述 - Node 服务端 + 静态前端"
+description: "作品上传系统项目概述 - Node 服务端 + Vue 前端"
 alwaysApply: true
 ---
 
 # 作品上传系统 - 项目概述
 
 ## 项目简介
-基于 Node.js + Express 的作品上传系统，使用 SQLite 本地数据库，集成阿里云 OSS 文件上传，支持钉钉登录认证。前端为静态 HTML/JS，由 Nginx 或 Node 提供。
+基于 Node.js + Express 的作品上传系统，使用 SQLite 本地数据库，集成阿里云 OSS 文件上传，支持钉钉登录认证、投票、评委评分与多屏展示。前端为 Vue 3 + Vite 单页应用，构建后由 Nginx 或 Node 提供。
 
 ## 技术栈
 - **服务端**: Node.js + Express
 - **数据库**: SQLite（better-sqlite3），数据文件 `server/data/app.db`
-- **文件存储**: 阿里云 OSS (REST API + HMAC-SHA1 签名)
+- **文件存储**: 阿里云 OSS (REST API，可选 STS 前端直传)
 - **认证**: 钉钉 OAuth 登录
-- **前端**: 静态 HTML/CSS/JS，位于 `frontend/public/`
+- **前端**: Vue 3 + Vite，构建产物在 `frontend-vue/dist/`，由 Node 或 Nginx 提供
 
 ## 项目架构
 
@@ -23,25 +23,24 @@ alwaysApply: true
 │   ├── data/                 # SQLite 数据目录（部署时需持久化）
 │   ├── db/                   # 数据库
 │   │   ├── schema.sql       # 表结构
-│   │   ├── index.js         # 连接与初始化
-│   │   └── init.js          # 独立建表脚本
+│   │   ├── index.js, init.js, migrate.js
 │   ├── middleware/auth.js   # 鉴权中间件
 │   ├── routes/              # API 路由
 │   │   ├── auth.js          # 认证（钉钉、管理员、登出）
-│   │   ├── upload.js        # 文件上传
+│   │   ├── upload.js        # 文件上传（含 STS、complete）
 │   │   ├── works.js         # 作品列表/删除
 │   │   ├── vote.js          # 投票
-│   │   └── screen-config.js # 大屏配置
+│   │   ├── screen-config.js # 大屏与系统配置
+│   │   └── judge.js         # 评委评分、作品列表、分类等
 │   ├── services/            # 业务服务
-│   │   ├── oss.js           # 阿里云 OSS
+│   │   ├── oss.js, sts.js   # 阿里云 OSS / STS
 │   │   └── dingtalk.js      # 钉钉 OAuth
 │   ├── utils/response.js, crypto.js
-│   ├── app.js               # Express 应用
-│   └── server.js            # 入口
-├── frontend/public/          # 静态前端
-│   ├── index.html           # 首页
-│   ├── login.html, upload.html, admin.html
-│   ├── screen.html, multi-screen.html, vote-result.html
+│   ├── app.js, server.js
+├── frontend-vue/             # Vue 前端（需 npm run build，产物在 dist/）
+│   ├── src/views/            # 首页、上传、管理、评分、大屏等
+│   ├── public/
+├── ecosystem.config.cjs     # PM2 配置（项目根目录）
 ├── package.json
 └── README.md
 ```
@@ -49,29 +48,31 @@ alwaysApply: true
 ### 核心模块说明
 
 #### 1. 认证 (auth.js)
-- 钉钉登录入口 `/auth/dingtalk`、回调 `/auth/callback`
-- 当前用户 `/auth/me`、管理员登录 `POST /auth/admin`、退出 `POST /auth/logout`
+- 钉钉：`GET /api/auth/dingtalk`、`/api/auth/callback`、`/api/auth/exchange`、`GET /api/auth/me`
+- 管理员 `POST /api/auth/admin`、退出 `POST /api/auth/logout`
 - 会话与用户信息存 SQLite（sessions、users、auth_states）
 
 #### 2. 上传 (upload.js)
-- `POST /api/upload`，需登录，multer 解析 multipart
-- 校验文件类型（MP4/MOV/AVI）、大小（≤100MB）、标题唯一
-- 上传 OSS 后写入 works 表
+- `GET /api/upload/sts-credentials`、`POST /api/upload/complete`、`POST /api/upload`，需登录
+- 校验文件类型（MP4/MOV/AVI 等）、大小（≤1GB），上传 OSS 后写入 works 表
 
 #### 3. 作品 (works.js)
-- `GET /api/works` 分页列表（含 voteCount）
-- `GET /api/works/top` 按投票数排序
+- `GET /api/works` 分页列表（含 voteCount）、`GET /api/works/top`
 - `DELETE /api/works/:workId` 仅管理员，同步删 OSS 与 votes
 
 #### 4. 投票 (vote.js)
 - `POST /api/vote`、`DELETE /api/vote`、`GET /api/vote/stats`、`GET /api/vote/user/count`、`GET /api/vote/users`（管理员）
-- 投票记录存 votes 表，每人每作品一票，每人最多 10 票
+- 投票记录存 votes 表；每人每作品一票；每人最多投票数由 screen_config.max_votes_per_user 配置（1–100），管理员与普通用户一视同仁；仅在「投票开放时间」内可投票（接口层校验）
 
 #### 5. 大屏配置 (screen-config.js)
 - `GET/POST /api/screen-config`，POST 仅管理员
-- 存 screen_config 表（gridLayout、theme）
+- 存 screen_config 表：gridLayout、theme、max_votes_per_user、judges_json、vote_open_start/end、score_open_start/end、updated_at
 
-#### 6. 数据持久化（重要）
+#### 6. 评委/评分 (judge.js)
+- `POST /api/judge/score` 评委打分（仅在评分开放时间内）；`GET /api/judge/works`、`GET /api/judge/works/:workId/scores` 评委或管理员；`GET /api/judge/my-scores`、`GET /api/judge/categories` 等
+- 评委身份由 screen_config.judges_json 中的邮箱判定；评分存 judge_scores、汇总存 work_judge_score
+
+#### 7. 数据持久化（重要）
 - 数据库文件：`server/data/app.db`
 - 部署时必须将 `data` 目录放在持久化存储（挂载卷），否则重新部署会丢失数据。详见 `server/DEPLOY.md`。
 
@@ -83,9 +84,9 @@ cd server
 npm install
 cp .env.example .env   # 填写 OSS、钉钉、ADMIN_PASSWORD
 node db/init.js        # 可选，首次建表
-npm start              # 默认 http://localhost:3000
+npm start              # 默认 http://localhost:8080
 ```
-前端由 Node 从 `frontend/public` 提供；生产建议 Nginx 提供静态并代理 `/api`、`/auth` 到 Node。见 `server/DEPLOY.md`。
+前端需在 `frontend-vue` 下执行 `npm run build`，Node 从 `frontend-vue/dist` 提供；生产建议 Nginx 提供静态并代理 `/api` 到 Node。见 `server/DEPLOY.md`。
 
 ### 环境变量
-在 `server/.env` 中配置：PORT、ALIYUN_OSS_*、DINGTALK_*、ADMIN_PASSWORD、ENVIRONMENT。
+在 `server/.env` 中配置：PORT、ALIYUN_OSS_*、DINGTALK_*、ADMIN_PASSWORD、ENVIRONMENT、ALLOWED_REDIRECT_ORIGINS（可选）等。

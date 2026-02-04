@@ -10,7 +10,7 @@ module.exports = {
     {
       name: 'd5-works',
       script: 'server.js',
-      cwd: path.join(__dirname, 'server'),
+      cwd: __dirname,
       instances: 1,
       autorestart: true,
       watch: false,

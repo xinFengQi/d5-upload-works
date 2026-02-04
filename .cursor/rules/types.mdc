@@ -17,11 +17,17 @@ globs:
 
 ## 投票
 - **votes**：work_id, user_id, created_at，主键 (work_id, user_id)
-- 每人每作品一票，每人最多 10 票
+- 每人每作品一票；每人最多投票数由 screen_config.max_votes_per_user 配置（1–100），管理员与普通用户一致
 
-## 大屏配置
-- **screen_config**：id=1, grid_layout('2x2'|'2x3'|'3x2'|'3x3'|'4x4'), theme_json, updated_at
+## 评委评分
+- **judge_scores**：work_id, judge_email, score(1–100), created_at，主键 (work_id, judge_email)
+- **work_judge_score**：work_id(PK), score(平均分), judge_count, updated_at
+- 评委身份由 screen_config.judges_json 中的邮箱判定
+
+## 大屏与系统配置
+- **screen_config**：id=1, grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, updated_at
 - theme 为 JSON：primaryColor, primaryDark, primaryLight, secondaryColor（十六进制）
+- 开放时间为时间戳（ms），null 表示不限制
 
 ## API 响应
 - 成功：`{ success: true, data: T }`

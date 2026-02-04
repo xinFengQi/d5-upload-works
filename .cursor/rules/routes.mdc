@@ -14,19 +14,25 @@ globs:
 ## 认证
 - 需要登录：使用 `requireUser` 中间件（`server/middleware/auth.js`）
 - 仅管理员：使用 `requireAdmin` 中间件
-- 从 `req.user` 取当前用户（userid、name、role 等）
+- 仅评委：使用 `requireJudge`（按 session 用户邮箱是否在 screen_config.judges 中判定）
+- 评委或管理员：使用 `requireAdminOrJudge` 中间件
+- 从 `req.user` 取当前用户（userid、name、role 等）；评委接口可从 `req.judgeEmail` 取当前评委邮箱
 
-## API 端点
+## API 端点（认证挂载在 /api/auth，其余在 /api 下）
 
-### 认证 /auth
-- `GET /auth/dingtalk`：重定向到钉钉
-- `GET /auth/callback`：钉钉回调，写 session 后重定向
-- `GET /auth/me`：当前用户信息（Bearer）
-- `POST /auth/admin`：管理员登录，body `{ password }`
-- `POST /auth/logout`：退出（Bearer）
+### 认证 /api/auth
+- `GET /api/auth/dingtalk`：重定向到钉钉
+- `GET /api/auth/dingtalk-url`：返回钉钉授权 URL（JSON）
+- `GET /api/auth/callback`：钉钉回调，写 session 后重定向
+- `GET /api/auth/exchange`：用 code 换 token（前端调）
+- `GET /api/auth/me`：当前用户信息（Bearer）
+- `POST /api/auth/admin`：管理员登录，body `{ password }`
+- `POST /api/auth/logout`：退出（Bearer）
 
 ### 上传 /api/upload
-- `POST /api/upload`：multipart，字段 `file`、`title`，需登录
+- `GET /api/upload/sts-credentials`：获取 STS 临时凭证（需登录）
+- `POST /api/upload/complete`：直传完成后落库（需登录）
+- `POST /api/upload`：multipart，字段 `file`、`title`，需登录；文件上限 1GB
 
 ### 作品 /api/works
 - `GET /api/works`：分页列表，query `page`、`limit`
@@ -34,15 +40,22 @@ globs:
 - `DELETE /api/works/:workId`：仅管理员
 
 ### 投票 /api/vote
-- `POST /api/vote`：body `{ workId }`，需登录
+- `POST /api/vote`：body `{ workId }`，需登录；受投票开放时间与每人最多投票数限制（管理员同限）
 - `DELETE /api/vote`：query `workId`，需登录
 - `GET /api/vote/user/count`：当前用户已投票数，需登录
 - `GET /api/vote/stats`：query `workId`，返回 voteCount、hasVoted
 - `GET /api/vote/users`：query `workId`，投票用户列表，仅管理员
 
-### 大屏配置 /api/screen-config
-- `GET /api/screen-config`：返回 gridLayout、theme、updatedAt
-- `POST /api/screen-config`：body `{ gridLayout?, theme? }`，仅管理员
+### 大屏与系统配置 /api/screen-config
+- `GET /api/screen-config`：返回 gridLayout、theme、maxVotesPerUser、judges、voteOpenStart/End、scoreOpenStart/End、updatedAt
+- `POST /api/screen-config`：body `{ gridLayout?, theme?, maxVotesPerUser?, judges?, voteOpenStart?, voteOpenEnd?, scoreOpenStart?, scoreOpenEnd? }`，仅管理员
 
-## 前端页面
-静态文件在 `frontend/public/`，路径映射在 `app.js` 中：`/` → index.html，`/login` → login.html，`/upload` → upload.html，`/admin` → admin.html，`/screen` → screen.html，`/multi-screen` → multi-screen.html，`/vote-result` → vote-result.html。
+### 评委/评分 /api/judge
+- `POST /api/judge/score`：body `{ workId, score }`，仅评委，受评分开放时间限制
+- `GET /api/judge/works`：评委/管理员可见作品列表（含评分）
+- `GET /api/judge/works/:workId/scores`：某作品评委评分明细，评委或管理员
+- `GET /api/judge/my-scores`：当前评委自己的打分列表
+- `GET /api/judge/categories`：作品分类选项；评委可 `PATCH /api/judge/works/:workId/category`（body `{ category }`）修改分类
+
+## 前端
+- 前端为 Vue 3 + Vite 单页应用（`frontend-vue/`），构建产物在 `frontend-vue/dist/`，由 `app.js` 静态提供并 SPA 回退到 `index.html`。

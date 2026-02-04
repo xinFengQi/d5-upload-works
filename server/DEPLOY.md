@@ -21,8 +21,7 @@
 ```bash
 /var/www/d5-upload-works/
 ├── server/          # 服务端
-├── frontend/
-│   └── public/      # 前端静态
+├── frontend-vue/    # Vue 前端（生产时需 npm run build，静态由 Nginx 提供 frontend-vue/dist 或由 Node 提供）
 ```
 
 ### 2. 安装依赖与配置
@@ -43,10 +42,13 @@ node db/init.js
 
 ### 4. 用 PM2 守护进程（推荐）
 
-项目根目录已提供 `ecosystem.config.cjs`，默认端口 **8080**，进程异常退出会自动重启。
+**PM2 配置文件位置**：在**项目根目录**（与 `server/`、`frontend-vue/` 同级）下的 `ecosystem.config.cjs`，不在 `server/` 内。若缺失可参考下文新建。
+
+默认端口 **8080**，进程异常退出会自动重启。
 
 ```bash
-# 在项目根目录
+# 进入项目根目录（注意不是 server 目录）
+cd /var/www/d5-upload-works
 npm install -g pm2
 pm2 start ecosystem.config.cjs
 pm2 save
@@ -68,10 +70,36 @@ pm2 stop d5-works
 pm2 start ecosystem.config.cjs --env production
 ```
 
+若项目根目录下没有 `ecosystem.config.cjs`，可新建该文件，内容如下（工作目录为 `server/`，便于加载 `.env` 和 `data/`）：
+
+```javascript
+// 放在项目根目录，与 server/、frontend-vue/ 同级
+const path = require('path');
+
+module.exports = {
+  apps: [
+    {
+      name: 'd5-works',
+      script: 'server.js',
+      cwd: path.join(__dirname, 'server'),
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '500M',
+      env: { NODE_ENV: 'development', PORT: 8080 },
+      env_production: { NODE_ENV: 'production', PORT: 8080 },
+      error_file: path.join(__dirname, 'logs', 'pm2-err.log'),
+      out_file: path.join(__dirname, 'logs', 'pm2-out.log'),
+      merge_logs: true,
+    },
+  ],
+};
+```
+
 ### 5. 配置 Nginx（推荐）
 
-- 静态：`root` 指向 `frontend/public`
-- 接口：`/api/`、`/auth/` 反向代理到 `http://127.0.0.1:8080`（默认端口 8080，可用 PORT 覆盖）
+- 静态：`root` 指向 Vue 构建目录 `frontend-vue/dist`（需先在 `frontend-vue` 下执行 `npm run build`）
+- 接口：`location /api/` 反向代理到 `http://127.0.0.1:8080`（默认端口 8080，可用 PORT 覆盖）；认证等接口均在 `/api/auth/*` 下
 
 配置示例见下文「Nginx 反向代理」一节。
 
@@ -95,11 +123,13 @@ WORKDIR /app
 COPY server/package*.json ./server/
 RUN cd server && npm install --production
 COPY server/ ./server/
-COPY frontend/ ./frontend/
+COPY frontend-vue/ ./frontend-vue/
+RUN cd frontend-vue && npm ci && npm run build
 EXPOSE 8080
 # 数据目录 /app/server/data 需在运行时挂载
 CMD ["node", "server/server.js"]
 ```
+（构建时需排除 `frontend-vue/node_modules`、`frontend-vue/dist` 以加快构建；若宿机已构建好 `frontend-vue/dist`，可只 `COPY frontend-vue/dist` 并去掉 `RUN npm run build`。）
 
 构建：
 
@@ -198,8 +228,8 @@ npm start
 
 ## Nginx 反向代理（生产环境推荐）
 
-- **静态资源**：由 Nginx 直接提供，减轻 Node 压力。
-- **接口**：`/api/*`、`/auth/*` 代理到 Node 服务（默认 `http://127.0.0.1:8080`）。
+- **静态资源**：由 Nginx 直接提供 Vue 构建产物（`frontend-vue/dist`），减轻 Node 压力。
+- **接口**：所有 API（含认证）均在 `/api` 下，将 `location /api/` 代理到 Node 服务（默认 `http://127.0.0.1:8080`）即可。
 
 示例配置：
 
@@ -207,7 +237,7 @@ npm start
 server {
     listen 80;
     server_name your-domain.com;
-    root /var/www/d5-upload-works/frontend/public;
+    root /var/www/d5-upload-works/frontend-vue/dist;
     index index.html;
 
     location / {
@@ -220,15 +250,6 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /auth/ {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

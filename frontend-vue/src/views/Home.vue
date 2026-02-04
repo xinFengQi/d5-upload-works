@@ -71,11 +71,11 @@
                 <button
                   type="button"
                   :class="['vote-btn', w.hasVoted && 'voted', w.isOwner && 'own-work']"
-                  :disabled="w.hasVoted || w.isOwner || !isVoteOpen"
-                  :title="!isVoteOpen ? voteClosedTip : undefined"
+                  :disabled="w.hasVoted || w.isOwner || !isVoteOpen || (userVoteCount >= maxVotesPerUser && !w.hasVoted && !w.isOwner)"
+                  :title="!isVoteOpen ? voteClosedTip : (userVoteCount >= maxVotesPerUser ? `每人最多可投 ${maxVotesPerUser} 票，您已投满` : undefined)"
                   @click.stop="handleVote(w)"
                 >
-                  {{ w.hasVoted ? '已投票' : w.isOwner ? '自己的作品' : !isVoteOpen ? '未开放' : '投票' }}
+                  {{ w.hasVoted ? '已投票' : w.isOwner ? '自己的作品' : !isVoteOpen ? '未开放' : userVoteCount >= maxVotesPerUser ? '已达上限' : '投票' }}
                 </button>
               </div>
             </div>
@@ -123,6 +123,8 @@ const { user, isLoggedIn, isAdmin, isJudge, setToken, checkAuth, logout } = useA
 const loading = ref(true);
 const works = ref([]);
 const userVoteCount = ref(0);
+/** 每人最多投票数（从管理员配置读取，1–100，所有人包括管理员均受此限制） */
+const maxVotesPerUser = ref(1);
 /** 投票开放时间（时间戳 ms），null 表示不限制 */
 const voteOpenStart = ref(null);
 const voteOpenEnd = ref(null);
@@ -181,6 +183,8 @@ async function loadTheme() {
     const res = await getScreenConfig();
     if (res.success && res.data) {
       if (res.data.theme) applyTheme(res.data.theme);
+      const n = res.data.maxVotesPerUser != null ? Number(res.data.maxVotesPerUser) : 1;
+      maxVotesPerUser.value = Math.min(100, Math.max(1, n));
       voteOpenStart.value = res.data.voteOpenStart != null ? Number(res.data.voteOpenStart) : null;
       voteOpenEnd.value = res.data.voteOpenEnd != null ? Number(res.data.voteOpenEnd) : null;
     }
@@ -284,6 +288,10 @@ async function handleVote(w) {
   const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
   if (!token) {
     if (confirm('请先登录才能投票，是否前往登录页面？')) router.push({ name: 'Login' });
+    return;
+  }
+  if (userVoteCount.value >= maxVotesPerUser.value) {
+    showTipModal(`每人最多可投 ${maxVotesPerUser.value} 票，您已投满`, 'info', '投票已达上限');
     return;
   }
   try {

@@ -8,9 +8,9 @@ globs:
 # 服务层规范
 
 ## 数据库 (server/db/)
-- `getDb()`：获取 SQLite 单例，首次自动建表（schema.sql）
+- `getDb()`：获取 SQLite 单例，首次自动建表（schema.sql），升级可用 `db/migrate.js`
 - 数据文件：`server/data/app.db`，部署时须持久化该目录
-- 表：users、sessions、auth_states、works、votes、screen_config
+- 表：users、sessions、auth_states、works、votes、screen_config、judge_scores、work_judge_score
 
 ## OSS 服务 (services/oss.js)
 - 构造函数接收 `config`（含 ALIYUN_OSS_*）

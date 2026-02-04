@@ -12,15 +12,15 @@ alwaysApply: true
 - 生产环境使用服务器环境变量或密钥管理服务，勿将 `.env` 提交仓库
 
 ## 2. API 安全
-- 需要认证的接口使用 `requireUser` / `requireAdmin` 中间件验证身份
+- 需要认证的接口使用 `requireUser` / `requireAdmin` / `requireJudge` / `requireAdminOrJudge` 等中间件验证身份
 - 生产环境使用 HTTPS
 - 上传接口校验文件类型和大小
 - 钉钉回调校验 state（防 CSRF）
 
 ## 3. 数据验证
 - 所有用户输入必须校验（类型、长度、范围）
-- 上传前校验：文件类型白名单（MP4/MOV/AVI）、大小（≤100MB）、标题非空且唯一
-- 大屏配置：gridLayout 白名单、theme 颜色为十六进制
+- 上传前校验：文件类型白名单（MP4/MOV/AVI 等）、大小（≤1GB）、标题非空且唯一
+- 大屏配置：gridLayout 白名单、theme 颜色为十六进制、开放时间为时间戳或 null
 
 ## 4. 会话管理
 - Session token 随机生成（`utils/crypto.js`）
@@ -29,7 +29,7 @@ alwaysApply: true
 - 退出时删除对应 session
 
 ## 5. 文件上传安全
-- 白名单文件类型，限制 100MB
+- 白名单文件类型，限制 1GB
 - OSS key 使用 `works/{userId}/{workId}.{ext}`，避免路径遍历
 - 上传接口需登录（requireUser）
 

@@ -27,10 +27,11 @@ globs:
 
 ### 其他
 - `ADMIN_PASSWORD`：管理员密码
-- `PORT`：服务端口，默认 3000
+- `PORT`：服务端口，默认 8080
 - `ENVIRONMENT`：可选，`development` | `production`
+- `ALLOWED_REDIRECT_ORIGINS`：可选，钉钉回调允许重定向的前端域名（逗号分隔），不设则用当前请求 host
 
 ## 使用方式
 - 在 `server/app.js` 中通过 `require('dotenv').config()` 加载
-- 配置挂到 `req.app.locals.config`，路由与服务从该对象读取
+- 配置挂到 `app.locals.config`（路由中可用 `req.app.locals.config`），路由与服务从该对象读取
 - 禁止在代码中硬编码密钥；生产环境勿将 `.env` 提交仓库
