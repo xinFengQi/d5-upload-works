@@ -19,7 +19,7 @@
               投票结果 ▾
             </button>
             <div v-show="showVoteResultDropdown" class="nav-dropdown-panel">
-              <router-link to="/vote-result?type=popular" class="dropdown-link" @click="closeVoteResultDropdown">人气奖</router-link>
+              <router-link to="/vote-result?type=popular" class="dropdown-link" @click="closeVoteResultDropdown">特别奖项</router-link>
             </div>
           </div>
           <div class="nav-menu-dropdown">
@@ -62,7 +62,7 @@
         <router-link to="/upload" class="btn btn-primary" @click="closeSideMenu">上传作品</router-link>
         <div class="side-menu-group">
           <div class="side-menu-group-title">投票结果</div>
-          <router-link to="/vote-result?type=popular" class="btn btn-outline" @click="closeSideMenu">人气奖</router-link>
+          <router-link to="/vote-result?type=popular" class="btn btn-outline" @click="closeSideMenu">特别奖项</router-link>
         </div>
         <div class="side-menu-group">
           <div class="side-menu-group-title">展示</div>
@@ -81,7 +81,7 @@
 
     <main class="main-content">
       <div class="page-header">
-        <h1 class="page-title">2026年会作品投票</h1>
+        <h1 class="page-title">十年之约 · 我的D5的未来对话</h1>
         <p class="page-subtitle">释放你的想象力，分享你的创作</p>
         <p class="page-tagline">进入心流之境，体验创作自由</p>
       </div>

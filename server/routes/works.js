@@ -90,7 +90,7 @@ router.get('/top', (req, res) => {
 
 /** 奖项类型与名称映射（后续奖项可在此扩展） */
 const AWARD_TYPES = {
-  popular: { name: '人气奖', limit: 10 },
+  popular: { name: '时光共鸣奖', limit: 3 },
 };
 
 // 按奖项类型获取作品集合（同一结果页带不同 type 调用）
@@ -101,7 +101,7 @@ router.get('/by-award', (req, res) => {
     if (!config) {
       return sendJson(res, createErrorResponse(`未知奖项类型: ${type}`, 'INVALID_AWARD_TYPE', 400));
     }
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || config.limit));
+    const limit = type === 'popular' ? 3 : Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || config.limit));
     const db = getDb();
     let rows;
     if (type === 'popular') {

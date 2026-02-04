@@ -7,9 +7,9 @@
     <div class="screen-container">
       <div class="content-wrapper">
         <div class="screen-header">
-          <h1 class="screen-title">2026年会作品投票结果</h1>
-          <p class="screen-subtitle">{{ awardName }} · Top {{ awardLimit }} 作品展示</p>
-          <p style="font-size: 1rem; opacity: 0.8; margin-top: 0.5rem;">见证创作的力量</p>
+          <h1 class="screen-title">十年之约 · 我的D5的未来对话</h1>
+          <p class="screen-subtitle">{{ awardName }}获得者</p>
+          <p class="screen-tagline">人心所向，即是时光的方向。</p>
         </div>
 
         <div v-if="loading" class="loading">
@@ -80,11 +80,11 @@ const videoModalOpen = ref(false);
 const previewWork = ref(null);
 const error = ref('');
 const works = ref([]);
-const awardName = ref('人气奖');
-const awardLimit = ref(10);
+const awardName = ref('时光共鸣奖');
+const awardLimit = ref(3);
 const refreshTimer = ref(null);
 
-/** 当前奖项类型（来自路由 query.type，默认人气奖） */
+/** 当前奖项类型（来自路由 query.type，默认特别奖项/时光共鸣奖） */
 const awardType = computed(() => (route.query.type || 'popular').toString().toLowerCase().trim() || 'popular');
 
 const topThree = computed(() => works.value.slice(0, 3));
@@ -153,14 +153,14 @@ async function load() {
   error.value = '';
   const type = awardType.value;
   try {
-    const res = await getWorksByAward(type, 10);
+    const res = await getWorksByAward(type, type === 'popular' ? 3 : 10);
     if (!res.success || !res.data?.items) {
       error.value = res.error?.message || '加载失败';
       works.value = [];
       return;
     }
     works.value = res.data.items;
-    awardName.value = res.data.awardName || '人气奖';
+    awardName.value = res.data.awardName || '时光共鸣奖';
     awardLimit.value = res.data.items.length;
   } catch (e) {
     error.value = e.response?.data?.error?.message || '加载失败，请刷新重试';
