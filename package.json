@@ -5,7 +5,11 @@
   "main": "server/server.js",
   "scripts": {
     "start": "cd server && node server.js",
-    "dev": "cd frontend-vue && npm run dev"
+    "dev": "cd frontend-vue && npm run dev",
+    "build": "node build-zips.js"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1"
   },
   "keywords": [
     "node",

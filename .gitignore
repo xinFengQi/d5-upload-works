@@ -7,6 +7,8 @@ pnpm-lock.yaml
 # Build outputs
 dist/
 .wrangler/
+frontend-vue-dist.zip
+server-dist.zip
 
 # Environment variables
 .dev.vars

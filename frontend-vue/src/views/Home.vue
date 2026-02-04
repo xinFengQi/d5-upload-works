@@ -134,7 +134,13 @@
         <div class="tip-modal-icon" :class="tipModal.type">{{ tipModal.icon }}</div>
         <h3 class="tip-modal-title">{{ tipModal.title }}</h3>
         <p class="tip-modal-message">{{ tipModal.message }}</p>
-        <button type="button" class="tip-modal-btn" @click="closeTipModal">确定</button>
+        <div class="tip-modal-actions">
+          <template v-if="tipModal.primaryText">
+            <button type="button" class="tip-modal-btn tip-modal-btn-secondary" @click="onTipSecondary">{{ tipModal.secondaryText || '取消' }}</button>
+            <button type="button" class="tip-modal-btn" @click="onTipPrimary">{{ tipModal.primaryText }}</button>
+          </template>
+          <button v-else type="button" class="tip-modal-btn" @click="closeTipModal">确定</button>
+        </div>
       </div>
     </div>
 
@@ -208,16 +214,37 @@ function applyTheme(theme) {
   root.style.setProperty('--gradient', `linear-gradient(135deg, ${pd} 0%, ${pc} 100%)`);
 }
 
-const tipModal = reactive({ show: false, type: 'info', icon: 'ℹ️', title: '提示', message: '' });
-function showTipModal(message, type = 'info', title = '提示') {
+const tipModal = reactive({
+  show: false,
+  type: 'info',
+  icon: 'ℹ️',
+  title: '提示',
+  message: '',
+  primaryText: '',
+  secondaryText: '',
+  onPrimary: null,
+});
+function showTipModal(message, type = 'info', title = '提示', primaryText = '', onPrimary = null, secondaryText = '再逛逛') {
   tipModal.message = message;
   tipModal.type = type;
   tipModal.title = title;
   tipModal.icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+  tipModal.primaryText = primaryText;
+  tipModal.secondaryText = secondaryText;
+  tipModal.onPrimary = onPrimary;
   tipModal.show = true;
 }
 function closeTipModal() {
   tipModal.show = false;
+  tipModal.primaryText = '';
+  tipModal.onPrimary = null;
+}
+function onTipPrimary() {
+  if (typeof tipModal.onPrimary === 'function') tipModal.onPrimary();
+  closeTipModal();
+}
+function onTipSecondary() {
+  closeTipModal();
 }
 
 async function loadTheme() {
@@ -375,7 +402,7 @@ async function handleVote(w) {
   }
   const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
   if (!token) {
-    if (confirm('请先登录才能投票，是否前往登录页面？')) router.push({ name: 'Login' });
+    showTipModal('请先登录后才能投票哦～', 'info', '登录提示', '去登录', () => router.push({ name: 'Login' }), '再逛逛');
     return;
   }
   if (userVoteCount.value >= maxVotesPerUser.value) {
@@ -454,6 +481,10 @@ onMounted(async () => {
 .tip-modal-icon.info { color: var(--primary-color, #2563eb); }
 .tip-modal-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: #1f2937; }
 .tip-modal-message { color: #6b7280; font-size: 0.875rem; margin-bottom: 1.5rem; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+.tip-modal-actions { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
+.tip-modal-actions .tip-modal-btn { flex: 1; }
 .tip-modal-btn { width: 100%; padding: 0.75rem; border-radius: 0.5rem; font-weight: 600; font-size: 1rem; border: none; cursor: pointer; transition: all 0.2s ease; background: var(--gradient, linear-gradient(135deg, #1e40af 0%, #2563eb 100%)); color: white; }
 .tip-modal-btn:hover { opacity: 0.95; transform: translateY(-1px); }
+.tip-modal-btn-secondary { background: #f3f4f6; color: #374151; }
+.tip-modal-btn-secondary:hover { background: #e5e7eb; }
 </style>
