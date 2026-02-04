@@ -5,6 +5,7 @@ const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { title: '登录' } },
   { path: '/upload', name: 'Upload', component: () => import('../views/Upload.vue'), meta: { title: '上传作品', auth: true } },
   { path: '/vote-result', name: 'VoteResult', component: () => import('../views/VoteResult.vue'), meta: { title: '投票结果' } },
+  { path: '/main-awards', name: 'MainAwards', component: () => import('../views/MainAwards.vue'), meta: { title: '主奖项' } },
   { path: '/screen', name: 'Screen', component: () => import('../views/Screen.vue'), meta: { title: '大屏展示' } },
   { path: '/multi-screen', name: 'MultiScreen', component: () => import('../views/MultiScreen.vue'), meta: { title: '多屏播放' } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { title: '管理员控制台', admin: true } },

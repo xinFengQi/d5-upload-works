@@ -19,6 +19,7 @@
               投票结果 ▾
             </button>
             <div v-show="showVoteResultDropdown" class="nav-dropdown-panel">
+              <router-link to="/main-awards" class="dropdown-link" @click="closeVoteResultDropdown">主奖项</router-link>
               <router-link to="/vote-result?type=popular" class="dropdown-link" @click="closeVoteResultDropdown">特别奖项</router-link>
             </div>
           </div>
@@ -63,6 +64,7 @@
         <div class="side-menu-group">
           <div class="side-menu-group-title">投票结果</div>
           <router-link to="/vote-result?type=popular" class="btn btn-outline" @click="closeSideMenu">特别奖项</router-link>
+          <router-link to="/main-awards" class="btn btn-outline" @click="closeSideMenu">主奖项</router-link>
         </div>
         <div class="side-menu-group">
           <div class="side-menu-group-title">展示</div>

@@ -474,6 +474,16 @@ body.admin-page .container {
   background: #000;
 }
 
+/* ========== 主奖项页 (main-awards-page) ========== */
+body.main-awards-page {
+  background: var(--gradient);
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  overflow-x: hidden;
+  color: white;
+}
+
 /* ========== 投票结果页 (vote-result-page) ========== */
 body.vote-result-page {
   background: var(--gradient);

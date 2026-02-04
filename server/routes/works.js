@@ -129,6 +129,88 @@ router.get('/by-award', (req, res) => {
   }
 });
 
+// 主奖项：最终得分 = 专业评审得分×60% + 大众情感共鸣分×40%，按综合得分排序取前 6
+// 大众情感共鸣分按人气排名：前10%→100分，前11%-30%→80分，前31%-60%→60分，后40%→40分
+router.get('/by-judge-rank', (req, res) => {
+  try {
+    // 主奖项页固定需要前 6 名，至少取 6 条，避免误传 limit=3 只返回 3 条
+    const limit = Math.min(20, Math.max(6, parseInt(req.query.limit, 10) || 6));
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT w.id, w.userid AS userId, w.title, w.description, w.file_url AS fileUrl, w.file_name AS fileName, w.file_size AS fileSize, w.file_type AS fileType, w.creator_name AS creatorName, u.avatar AS creatorAvatar, w.created_at AS createdAt, w.updated_at AS updatedAt,
+             COALESCE(v.cnt, 0) AS voteCount,
+             j.score AS judgeScore
+      FROM works w
+      LEFT JOIN work_judge_score j ON w.id = j.work_id
+      LEFT JOIN users u ON w.userid = u.userid
+      LEFT JOIN (SELECT work_id, COUNT(*) AS cnt FROM votes GROUP BY work_id) v ON w.id = v.work_id
+      ORDER BY w.created_at DESC
+    `).all();
+    const N = rows.length;
+    if (N === 0) {
+      return sendJson(res, createSuccessResponse({ items: [], total: 0 }));
+    }
+    // 按投票数降序得到人气排名（同票按 created_at 先到在前）
+    const byVote = [...rows].sort((a, b) => {
+      const va = a.voteCount ?? 0;
+      const vb = b.voteCount ?? 0;
+      if (vb !== va) return vb - va;
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+    });
+    const voteRankByWorkId = {};
+    byVote.forEach((r, idx) => {
+      voteRankByWorkId[r.id] = idx + 1;
+    });
+    const ceil = Math.ceil;
+    const getPublicScore = (rank) => {
+      if (rank <= ceil(0.1 * N)) return 100;
+      if (rank <= ceil(0.3 * N)) return 80;
+      if (rank <= ceil(0.6 * N)) return 60;
+      return 40;
+    };
+    const withScore = rows.map((r) => {
+      const judgeScore = r.judgeScore != null ? Number(r.judgeScore) : 0;
+      const voteRank = voteRankByWorkId[r.id] ?? N;
+      const publicScore = getPublicScore(voteRank);
+      const finalScore = judgeScore * 0.6 + publicScore * 0.4;
+      return {
+        ...r,
+        judgeScore: r.judgeScore != null ? Math.round(r.judgeScore * 10) / 10 : null,
+        publicScore,
+        finalScore: Math.round(finalScore * 10) / 10,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      };
+    });
+    const sorted = withScore.sort((a, b) => {
+      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+    });
+    const items = sorted.slice(0, limit).map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      title: r.title,
+      description: r.description,
+      fileUrl: r.fileUrl,
+      fileName: r.fileName,
+      fileSize: r.fileSize,
+      fileType: r.fileType,
+      creatorName: r.creatorName,
+      creatorAvatar: r.creatorAvatar,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      voteCount: r.voteCount,
+      judgeScore: r.judgeScore,
+      publicScore: r.publicScore,
+      finalScore: r.finalScore,
+    }));
+    sendJson(res, createSuccessResponse({ items, total: items.length }));
+  } catch (err) {
+    console.error('Get works by judge rank error:', err);
+    sendJson(res, createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500));
+  }
+});
+
 // 删除作品（仅管理员）
 router.delete('/:workId', requireAdmin, async (req, res) => {
   try {

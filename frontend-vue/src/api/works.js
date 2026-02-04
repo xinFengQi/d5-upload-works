@@ -15,6 +15,11 @@ export function getWorksByAward(type = 'popular', limit = 10) {
   return request.get('/api/works/by-award', { params: { type, limit } }).then((res) => res.data);
 }
 
+/** 主奖项：按综合得分（评委评分）排序取前 N，用于主奖项页 */
+export function getWorksByJudgeRank(limit = 6) {
+  return request.get('/api/works/by-judge-rank', { params: { limit } }).then((res) => res.data);
+}
+
 /** 校验作品标题是否可用（上传前调用，避免上传后才发现重复） */
 export function checkWorkTitle(title) {
   return request.get('/api/works/check-title', { params: { title: (title || '').trim() } }).then((res) => res.data);
