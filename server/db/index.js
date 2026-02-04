@@ -61,12 +61,17 @@ function initSchema(db) {
         work_id TEXT NOT NULL,
         judge_email TEXT NOT NULL,
         score INTEGER NOT NULL CHECK (score >= 1 AND score <= 100),
+        creativity_score INTEGER,
+        art_score INTEGER,
         created_at INTEGER NOT NULL,
         PRIMARY KEY (work_id, judge_email),
         FOREIGN KEY (work_id) REFERENCES works(id)
       )`);
       db.exec('CREATE INDEX IF NOT EXISTS idx_judge_scores_work ON judge_scores(work_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_judge_scores_judge ON judge_scores(judge_email)');
+    } else if (!hasColumn(db, 'judge_scores', 'creativity_score')) {
+      db.exec('ALTER TABLE judge_scores ADD COLUMN creativity_score INTEGER');
+      db.exec('ALTER TABLE judge_scores ADD COLUMN art_score INTEGER');
     }
     const hasWorkJudgeScore = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='work_judge_score'").get();
     if (!hasWorkJudgeScore) {
@@ -74,18 +79,31 @@ function initSchema(db) {
         work_id TEXT PRIMARY KEY,
         score REAL NOT NULL,
         judge_count INTEGER NOT NULL DEFAULT 0,
+        creativity_score REAL,
+        art_score REAL,
         updated_at INTEGER NOT NULL,
         FOREIGN KEY (work_id) REFERENCES works(id)
       )`);
+    } else if (!hasColumn(db, 'work_judge_score', 'creativity_score')) {
+      db.exec('ALTER TABLE work_judge_score ADD COLUMN creativity_score REAL');
+      db.exec('ALTER TABLE work_judge_score ADD COLUMN art_score REAL');
     }
     const hasWorkJudgeScoreNow = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='work_judge_score'").get();
     if (hasWorkJudgeScoreNow) {
       const count = db.prepare('SELECT COUNT(*) AS c FROM work_judge_score').get().c;
       if (count === 0) {
-        db.prepare(`
-          INSERT INTO work_judge_score (work_id, score, judge_count, updated_at)
-          SELECT work_id, AVG(score), COUNT(*), MAX(created_at) FROM judge_scores GROUP BY work_id
-        `).run();
+        const hasCreativity = hasColumn(db, 'work_judge_score', 'creativity_score');
+        if (hasCreativity) {
+          db.prepare(`
+            INSERT INTO work_judge_score (work_id, score, judge_count, updated_at, creativity_score, art_score)
+            SELECT work_id, AVG(score), COUNT(*), MAX(created_at), AVG(COALESCE(creativity_score, score/2.0)), AVG(COALESCE(art_score, score/2.0)) FROM judge_scores GROUP BY work_id
+          `).run();
+        } else {
+          db.prepare(`
+            INSERT INTO work_judge_score (work_id, score, judge_count, updated_at)
+            SELECT work_id, AVG(score), COUNT(*), MAX(created_at) FROM judge_scores GROUP BY work_id
+          `).run();
+        }
       }
     }
   } catch (e) {
@@ -105,6 +123,7 @@ function getDbInstance() {
 
 module.exports = {
   getDb: getDbInstance,
+  hasColumn,
   DB_PATH,
   DATA_DIR,
   initSchema,

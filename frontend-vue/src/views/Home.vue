@@ -99,7 +99,7 @@
               <div class="work-title">{{ w.title || '未命名作品' }}</div>
               <p v-if="w.description" class="work-description" :title="w.description">{{ w.description }}</p>
               <div class="work-creator-row">
-                <img v-if="w.creatorAvatar" :src="w.creatorAvatar" :alt="w.creatorName || ''" class="work-creator-avatar">
+                <img v-if="w.creatorAvatar" :src="w.creatorAvatar" :alt="w.creatorName || ''" class="work-creator-avatar" loading="lazy">
                 <span v-else class="work-creator-avatar work-creator-avatar-placeholder">{{ (w.creatorName || '未')[0] }}</span>
                 <span class="work-creator-name">{{ w.creatorName || '未知' }}</span>
               </div>
@@ -445,7 +445,15 @@ async function loadWorks(opts = {}) {
       return;
     }
     if (!token) userVoteCount.value = 0;
-    works.value = items.map((w) => toDisplayItem(w));
+    // 按作品 id 去重，避免同一视频在列表中重复出现导致多次加载
+    const seenIds = new Set();
+    const uniqueItems = items.filter((w) => {
+      const id = w.id;
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+    works.value = uniqueItems.map((w) => toDisplayItem(w));
 
     if (token) {
       try {

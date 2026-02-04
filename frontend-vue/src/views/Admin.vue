@@ -78,7 +78,7 @@
                   <WorkVideoPreview :work="work" variant="card" @preview="openVideoPreview(work)" />
                   <div class="work-card-content">
                     <div class="work-card-title" :title="work.title">{{ work.title || '未命名作品' }}</div>
-                    <div class="work-card-meta">{{ work.creatorName || '未知' }} · {{ formatDate(work.createdAt) }}</div>
+                    <div class="work-card-meta">{{ work.creatorName || '未知' }}</div>
                     <div class="work-card-votes">{{ work.voteCount ?? 0 }} 票</div>
                     <div class="work-card-actions">
                       <button type="button" class="btn btn-outline btn-sm" @click="showVoters(work)">查看投票</button>
@@ -95,7 +95,6 @@
                     <th>作品标题</th>
                     <th>创作者</th>
                     <th>投票数</th>
-                    <th>上传时间</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -107,7 +106,6 @@
                     <td><div class="work-title" :title="work.title">{{ work.title || '未命名作品' }}</div></td>
                     <td><div class="work-creator">{{ work.creatorName || '未知' }}</div></td>
                     <td><div class="work-votes">{{ work.voteCount ?? 0 }} 票</div></td>
-                    <td><div class="work-date">{{ formatDate(work.createdAt) }}</div></td>
                     <td>
                       <div class="work-actions">
                         <button type="button" class="btn btn-outline btn-sm" @click="showVoters(work)">查看投票</button>

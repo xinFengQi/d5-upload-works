@@ -49,20 +49,14 @@
                 <WorkVideoPreview :work="work" variant="card" @preview="openVideoPreview(work)" />
                 <div class="work-card-content">
                   <div class="work-card-title" :title="work.title">{{ work.title || '未命名作品' }}</div>
-                  <div class="work-card-meta">{{ work.creatorName || '未知' }} · {{ formatDate(work.createdAt) }}</div>
+                  <div class="work-card-meta">{{ work.creatorName || '未知' }}</div>
                   <div class="score-card-row">
                     <span class="work-card-votes">{{ work.voteCount ?? 0 }} 票</span>
-                    <span class="score-card-judge">{{ formatJudgeScore(work) }}</span>
-                    <span class="score-card-my">{{ work.myScore != null ? work.myScore + ' 分' : '未打分' }}</span>
-                  </div>
-                  <div class="score-card-category">
-                    <span class="score-card-category-label">分类：</span>
-                    <span class="score-card-category-value">{{ work.category || '未设置' }}</span>
+                    <span class="score-card-judge">总分 {{ formatScoreCell(work.judgeScore) }}　创意 {{ formatScoreCell(work.judgeCreativityScore) }}　艺术 {{ formatScoreCell(work.judgeArtScore) }}</span>
+                    <span class="score-card-my">{{ formatMyScore(work) }}</span>
                   </div>
                   <div class="work-card-actions score-card-actions">
                     <button v-if="isJudge" type="button" class="btn btn-primary" :disabled="!isScoreOpen" :title="!isScoreOpen ? scoreClosedTip : undefined" @click="openScoreModal(work)">{{ isScoreOpen ? '评分' : '未开放' }}</button>
-                    <button v-if="isJudge" type="button" class="btn btn-category" @click="openCategoryModal(work)">修改分类</button>
-                    <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
                   </div>
                 </div>
               </div>
@@ -73,10 +67,10 @@
                   <th>预览</th>
                   <th>作品标题</th>
                   <th>创作者</th>
-                  <th>分类</th>
                   <th>投票数</th>
-                  <th>上传时间</th>
-                  <th>评委平均分</th>
+                  <th>总分平均分</th>
+                  <th>创意与概念平均分</th>
+                  <th>艺术与观感平均分</th>
                   <th>我的打分</th>
                   <th>操作</th>
                 </tr>
@@ -88,16 +82,14 @@
                   </td>
                   <td><div class="work-title" :title="work.title">{{ work.title || '未命名作品' }}</div></td>
                   <td><div class="work-creator">{{ work.creatorName || '未知' }}</div></td>
-                  <td><div class="work-category">{{ work.category || '未设置' }}</div></td>
                   <td><div class="work-votes">{{ work.voteCount ?? 0 }} 票</div></td>
-                  <td><div class="work-date">{{ formatDate(work.createdAt) }}</div></td>
-                  <td><div class="work-judge-score">{{ formatJudgeScore(work) }}</div></td>
-                  <td><div class="work-my-score">{{ work.myScore != null ? work.myScore + ' 分' : '未打分' }}</div></td>
+                  <td><div class="work-judge-score">{{ formatScoreCell(work.judgeScore) }}</div></td>
+                  <td><div class="work-judge-score">{{ formatScoreCell(work.judgeCreativityScore) }}</div></td>
+                  <td><div class="work-judge-score">{{ formatScoreCell(work.judgeArtScore) }}</div></td>
+                  <td><div class="work-my-score">{{ formatMyScore(work) }}</div></td>
                   <td>
                     <div class="score-table-actions">
                       <button v-if="isJudge" type="button" class="btn btn-primary btn-sm" :disabled="!isScoreOpen" :title="!isScoreOpen ? scoreClosedTip : undefined" @click="openScoreModal(work)">{{ isScoreOpen ? '评分' : '未开放' }}</button>
-                      <button v-if="isJudge" type="button" class="btn btn-category btn-sm" @click="openCategoryModal(work)">修改分类</button>
-                      <button type="button" class="btn btn-outline btn-sm" @click="showScores(work)">查看评分</button>
                     </div>
                   </td>
                 </tr>
@@ -110,103 +102,52 @@
 
     <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
 
-    <!-- 修改分类弹框 -->
-    <div class="modal category-modal" :class="{ active: categoryModal.show }" @click.self="closeCategoryModal">
-      <div class="modal-content category-modal-content">
-        <button type="button" class="modal-close category-modal-close" aria-label="关闭" @click="closeCategoryModal">×</button>
-        <h3 class="modal-title category-modal-title">修改分类</h3>
-        <p class="category-modal-work">「{{ categoryModal.work?.title || '未命名作品' }}」</p>
-        <div class="category-modal-select-wrap">
-          <label class="category-modal-label">选择分类</label>
-          <select
-            v-model="categoryModal.selectedCategory"
-            class="category-modal-select"
-          >
-            <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          </select>
-        </div>
-        <div class="modal-actions category-modal-actions">
-          <button type="button" class="btn btn-outline" @click="closeCategoryModal">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="categoryModal.saving"
-            @click="confirmCategoryChange"
-          >
-            {{ categoryModal.saving ? '提交中...' : '确定' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <div class="modal" :class="{ active: scoreModal.show }" @click.self="scoreModal.show = false">
-      <div class="modal-content score-modal-content">
-        <h3 class="modal-title">评委评分</h3>
-        <p class="score-modal-work-title">「{{ scoreModal.title }}」</p>
-        <p class="score-modal-hint">评委对该作品打分，1–100 分</p>
-        <div class="score-input-wrap">
-          <div class="score-input-box">
-            <input
-              v-model.number="scoreModal.score"
-              type="number"
-              class="score-input"
-              min="1"
-              max="100"
-              placeholder="—"
-              @input="clampScore"
-            >
-            <span class="score-input-unit">分</span>
+      <div class="modal-content score-modal-content score-modal-dual">
+        <h3 class="modal-title">专业评审评分（满分100分）</h3>
+        <p class="score-modal-work-title" :title="scoreModal.title">「{{ scoreModal.title }}」</p>
+        <p class="score-modal-hint">创意与概念、艺术与观感各 0–50 分，多名评委取平均。</p>
+        <div class="score-rubric">创意与概念：优秀40–50 良好30–40 一般20–30 待提升0–20　艺术与观感：同上</div>
+        <div class="score-dual-inputs">
+          <div class="score-dim-wrap">
+            <label class="score-dim-label">创意与概念（0–50）</label>
+            <div class="score-input-box">
+              <input
+                v-model.number="scoreModal.creativityScore"
+                type="number"
+                class="score-input"
+                min="0"
+                max="50"
+                placeholder="0"
+                @input="clampDualScore"
+              >
+              <span class="score-input-unit">分</span>
+            </div>
+            <input v-model.number="scoreModal.creativityScore" type="range" class="score-slider" min="0" max="50" step="1" @input="clampDualScore">
           </div>
-          <input
-            v-model.number="scoreModal.score"
-            type="range"
-            class="score-slider"
-            min="1"
-            max="100"
-            step="1"
-            @input="clampScore"
-          >
-          <div class="score-quick">
-            <span class="score-quick-label">快捷</span>
-            <button
-              v-for="n in [60, 70, 80, 90, 100]"
-              :key="n"
-              type="button"
-              class="score-quick-btn"
-              :class="{ active: scoreModal.score === n }"
-              @click="scoreModal.score = n"
-            >{{ n }}</button>
+          <div class="score-dim-wrap">
+            <label class="score-dim-label">艺术与观感（0–50）</label>
+            <div class="score-input-box">
+              <input
+                v-model.number="scoreModal.artScore"
+                type="number"
+                class="score-input"
+                min="0"
+                max="50"
+                placeholder="0"
+                @input="clampDualScore"
+              >
+              <span class="score-input-unit">分</span>
+            </div>
+            <input v-model.number="scoreModal.artScore" type="range" class="score-slider" min="0" max="50" step="1" @input="clampDualScore">
           </div>
+          <div class="score-total-row">总分：<strong>{{ (scoreModal.creativityScore ?? 0) + (scoreModal.artScore ?? 0) }}</strong> 分</div>
         </div>
         <div class="modal-actions score-modal-actions">
           <button type="button" class="btn btn-outline" @click="scoreModal.show = false">取消</button>
-          <button type="button" class="btn btn-primary" :disabled="scoreModal.saving || isScoreInvalid(scoreModal.score)" @click="submitScore">
+          <button type="button" class="btn btn-primary" :disabled="scoreModal.saving || isDualScoreInvalid()" @click="submitScore">
             {{ scoreModal.saving ? '提交中...' : '提交' }}
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 查看评分明细弹框 -->
-    <div class="modal modal-scores" :class="{ active: scoresModal.show }" @click.self="scoresModal.show = false">
-      <div class="modal-content modal-scores-content">
-        <button type="button" class="modal-close" aria-label="关闭" @click="scoresModal.show = false">×</button>
-        <h3 class="modal-title">评委评分 ({{ scoresModal.titleShort }})</h3>
-        <div v-if="scoresModal.loading" class="loading"><div class="spinner"></div><p>加载中...</p></div>
-        <div v-else-if="scoresModal.error" class="voters-empty"><p>{{ scoresModal.error }}</p></div>
-        <div v-else-if="scoresModal.scores.length === 0" class="voters-empty"><div style="font-size:3rem;margin-bottom:1rem;">📋</div><p>暂无评委评分</p></div>
-        <div v-else class="scores-list-wrap">
-          <div class="voters-header">共 {{ scoresModal.scores.length }} 位评委评分</div>
-          <div class="scores-list-scroll">
-            <div v-for="(s, i) in scoresModal.scores" :key="i" class="score-item">
-              <div class="voter-index">{{ i + 1 }}</div>
-              <div class="score-info">
-                <div class="score-judge">{{ s.judgeEmail }}</div>
-                <div class="score-value">{{ s.score }} 分</div>
-                <div class="voter-time">{{ formatDate(s.createdAt) }}</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -227,7 +168,7 @@ import { ref, computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import WorkVideoPreview from '../components/WorkVideoPreview.vue';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
-import { getJudgeWorks, submitScore as apiSubmitScore, getCategories as apiGetCategories, updateWorkCategory, getWorkJudgeScores } from '../api/judge';
+import { getJudgeWorks, submitScore as apiSubmitScore } from '../api/judge';
 import { getScreenConfig } from '../api/screenConfig';
 import { useAuth } from '../composables/useAuth';
 
@@ -239,15 +180,7 @@ const canAccessScore = computed(() => isJudge.value || isAdmin.value);
 const isJudgeReady = ref(false);
 const works = ref([]);
 const worksLoading = ref(true);
-const categories = ref([]);
-const scoreModal = ref({ show: false, workId: null, title: '', score: null, saving: false });
-const categoryModal = reactive({
-  show: false,
-  work: null,
-  selectedCategory: '',
-  saving: false,
-});
-const scoresModal = reactive({ show: false, workId: null, titleShort: '', loading: false, error: '', scores: [] });
+const scoreModal = ref({ show: false, workId: null, title: '', creativityScore: null, artScore: null, saving: false });
 const previewWork = ref(null);
 const videoModalOpen = ref(false);
 const tipModal = reactive({ show: false, type: 'info', icon: 'ℹ️', title: '提示', message: '' });
@@ -288,20 +221,19 @@ const sortedWorks = computed(() => {
   return [...works.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 });
 
-const categoryOptions = computed(() => {
-  const list = Array.isArray(categories.value) ? categories.value : [];
-  return list.map((v) => ({ value: v, label: v === '' ? '未设置' : v }));
-});
-
-function formatJudgeScore(work) {
-  if (work.judgeScore != null && work.judgeCount != null && work.judgeCount > 0) {
-    const avg = Number(work.judgeScore);
-    if (!Number.isNaN(avg)) {
-      const text = avg % 1 === 0 ? String(Math.round(avg)) : avg.toFixed(1);
-      return work.judgeCount > 1 ? `${text} 分 (${work.judgeCount}人评)` : `${text} 分`;
+function formatScoreCell(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  const n = Number(value);
+  return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(1);
+}
+function formatMyScore(work) {
+  if (work.myScore != null) {
+    if (work.myCreativityScore != null && work.myArtScore != null) {
+      return `创意${work.myCreativityScore} + 艺术${work.myArtScore}（总分${work.myScore}）`;
     }
+    return `${work.myScore} 分`;
   }
-  return '未评';
+  return '未打分';
 }
 
 function formatDate(ts) {
@@ -325,52 +257,6 @@ async function loadWorks() {
   }
 }
 
-async function loadCategories() {
-  try {
-    const res = await apiGetCategories();
-    if (res.success && Array.isArray(res.data?.list)) {
-      categories.value = res.data.list;
-    } else {
-      categories.value = ['', '创意类', '技术类', '视觉类', '叙事类', '其他'];
-    }
-  } catch {
-    categories.value = ['', '创意类', '技术类', '视觉类', '叙事类', '其他'];
-  }
-}
-
-function openCategoryModal(work) {
-  if (!work) return;
-  categoryModal.work = work;
-  categoryModal.selectedCategory = work.category ?? '';
-  categoryModal.show = true;
-  categoryModal.saving = false;
-}
-
-function closeCategoryModal() {
-  categoryModal.show = false;
-  categoryModal.work = null;
-  categoryModal.selectedCategory = '';
-}
-
-async function confirmCategoryChange() {
-  if (!categoryModal.work || categoryModal.saving) return;
-  categoryModal.saving = true;
-  try {
-    const res = await updateWorkCategory(categoryModal.work.id, categoryModal.selectedCategory);
-    if (res.success) {
-      const w = works.value.find((x) => x.id === categoryModal.work.id);
-      if (w) w.category = categoryModal.selectedCategory === '' ? null : categoryModal.selectedCategory;
-      closeCategoryModal();
-    } else {
-      showTipModal(res.error?.message || '修改失败', 'error', '修改失败');
-    }
-  } catch {
-    showTipModal('修改失败，请重试', 'error', '修改失败');
-  } finally {
-    categoryModal.saving = false;
-  }
-}
-
 function openVideoPreview(work) {
   if (!work?.fileUrl) return;
   previewWork.value = work;
@@ -382,77 +268,61 @@ function closeVideoModal() {
   videoModalOpen.value = false;
 }
 
-function showScores(work) {
-  scoresModal.workId = work.id;
-  scoresModal.titleShort = (work.title || '未命名').length > 30 ? (work.title || '未命名').slice(0, 30) + '...' : (work.title || '未命名');
-  scoresModal.show = true;
-  scoresModal.loading = true;
-  scoresModal.error = '';
-  scoresModal.scores = [];
-  getWorkJudgeScores(work.id)
-    .then((res) => {
-      if (res.success && res.data?.scores) {
-        scoresModal.scores = res.data.scores;
-      } else {
-        scoresModal.error = '加载失败，请重试';
-      }
-    })
-    .catch(() => {
-      scoresModal.error = '加载失败，请重试';
-    })
-    .finally(() => {
-      scoresModal.loading = false;
-    });
-}
-
 function openScoreModal(work) {
   if (!isScoreOpen.value) {
     showTipModal(scoreClosedTip.value || '当前不在评分开放时间内', 'info', '评分未开放');
     return;
   }
+  const c = work.myCreativityScore != null ? work.myCreativityScore : (work.myScore != null ? Math.round(work.myScore / 2) : null);
+  const a = work.myArtScore != null ? work.myArtScore : (work.myScore != null ? work.myScore - Math.round(work.myScore / 2) : null);
   scoreModal.value = {
     show: true,
     workId: work.id,
     title: work.title || '未命名作品',
-    score: work.myScore != null ? work.myScore : null,
+    creativityScore: c,
+    artScore: a,
     saving: false,
   };
 }
 
-function isScoreInvalid(score) {
-  if (score == null || score === '') return true;
-  const n = Number(score);
-  return Number.isNaN(n) || n < 1 || n > 100;
+function isDualScoreInvalid() {
+  const c = scoreModal.value.creativityScore;
+  const a = scoreModal.value.artScore;
+  if (c == null || c === '' || a == null || a === '') return true;
+  const cn = Number(c);
+  const an = Number(a);
+  return Number.isNaN(cn) || cn < 0 || cn > 50 || Number.isNaN(an) || an < 0 || an > 50;
 }
 
-function clampScore() {
-  const s = scoreModal.value.score;
-  if (s == null || s === '') return;
-  let n = Number(s);
-  if (Number.isNaN(n)) {
-    scoreModal.value.score = null;
-    return;
+function clampDualScore() {
+  const c = scoreModal.value.creativityScore;
+  const a = scoreModal.value.artScore;
+  if (c != null && c !== '') {
+    let n = Number(c);
+    if (!Number.isNaN(n)) scoreModal.value.creativityScore = Math.round(Math.max(0, Math.min(50, n)));
   }
-  n = Math.round(Math.max(1, Math.min(100, n)));
-  scoreModal.value.score = n;
+  if (a != null && a !== '') {
+    let n = Number(a);
+    if (!Number.isNaN(n)) scoreModal.value.artScore = Math.round(Math.max(0, Math.min(50, n)));
+  }
 }
 
 async function submitScore() {
-  const { workId, title, score, saving } = scoreModal.value;
+  const { workId, creativityScore, artScore, saving } = scoreModal.value;
   if (saving || workId == null) return;
   if (!isScoreOpen.value) {
     showTipModal(scoreClosedTip.value || '当前不在评分开放时间内', 'info', '评分未开放');
     return;
   }
-  let s = Number(score);
-  if (Number.isNaN(s) || s < 1 || s > 100) {
-    showTipModal('请输入 1–100 的整数', 'error', '输入错误');
+  const c = Number(creativityScore);
+  const a = Number(artScore);
+  if (Number.isNaN(c) || c < 0 || c > 50 || Number.isNaN(a) || a < 0 || a > 50) {
+    showTipModal('创意与概念、艺术与观感均须为 0–50 的整数', 'error', '输入错误');
     return;
   }
-  s = Math.round(s);
   scoreModal.value.saving = true;
   try {
-    const res = await apiSubmitScore(workId, s);
+    const res = await apiSubmitScore(workId, Math.round(c), Math.round(a));
     if (res.success) {
       scoreModal.value.show = false;
       await loadWorks();
@@ -484,7 +354,7 @@ onMounted(async () => {
   await checkAuth();
   isJudgeReady.value = true;
   if (!canAccessScore.value) return;
-  await Promise.all([loadWorks(), loadCategories(), loadScreenConfigForScore()]);
+  await Promise.all([loadWorks(), loadScreenConfigForScore()]);
 });
 </script>
 
@@ -524,7 +394,7 @@ onMounted(async () => {
 .score-works-table {
   display: table;
 }
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
   .score-page .works-table-container .score-works-table {
     display: none;
   }
@@ -535,7 +405,7 @@ onMounted(async () => {
     padding: 1rem;
   }
 }
-@media (min-width: 769px) {
+@media (min-width: 1101px) {
   .score-page .score-works-cards {
     display: none !important;
   }
@@ -550,15 +420,6 @@ onMounted(async () => {
 .score-card-my {
   font-weight: 600;
   color: var(--primary-color);
-}
-.score-card-category {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-.score-card-category-value {
-  font-weight: 500;
-  color: var(--text-primary);
 }
 .score-card-actions {
   padding-top: 0.75rem;
@@ -581,118 +442,6 @@ onMounted(async () => {
   align-items: center;
 }
 
-/* 修改分类按钮：与评分按钮区分，更易识别 */
-.btn-category {
-  font-weight: 600;
-  color: var(--primary-color);
-  background: rgba(37, 99, 235, 0.08);
-  border: 1px solid rgba(37, 99, 235, 0.35);
-  border-radius: 10px;
-  transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
-}
-.btn-category:hover {
-  color: var(--primary-dark);
-  background: rgba(37, 99, 235, 0.14);
-  border-color: var(--primary-light);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
-}
-.btn-category:active {
-  background: rgba(37, 99, 235, 0.2);
-}
-
-/* 修改分类弹框 */
-.category-modal .modal-content {
-  border-radius: 16px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-}
-.category-modal-content {
-  position: relative;
-  padding: 1.5rem 1.75rem;
-  max-width: 380px;
-  width: 100%;
-}
-.category-modal-close {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s, background 0.2s;
-}
-.category-modal-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-}
-.category-modal-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.25rem;
-}
-.category-modal-work {
-  font-size: 0.9375rem;
-  color: var(--primary-color);
-  font-weight: 600;
-  margin: 0 0 1.25rem;
-  word-break: break-word;
-}
-.category-modal-select-wrap {
-  margin-bottom: 1.5rem;
-}
-.category-modal-label {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-.category-modal-select {
-  width: 100%;
-  padding: 0.6rem 2.25rem 0.6rem 0.75rem;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 4.5 L6 7.5 L9 4.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.category-modal-select:hover {
-  border-color: var(--primary-light);
-}
-.category-modal-select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-}
-.category-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 0;
-}
-.work-category {
-  font-size: 0.875rem;
-  color: var(--text-primary);
-}
-
 .work-judge-score {
   font-weight: 600;
   color: var(--text-primary);
@@ -710,30 +459,75 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
-/* 评分弹框 */
+/* 评分弹框（双维度）：限制高度、可滚动，内容更紧凑 */
 .score-modal-content {
   max-width: 400px;
   padding: 1.75rem;
 }
+.score-modal-content.score-modal-dual {
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  -webkit-overflow-scrolling: touch;
+}
 .score-modal-content .modal-title {
-  font-size: 1.25rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.125rem;
+  margin-bottom: 0.2rem;
   color: var(--text-primary);
 }
 .score-modal-work-title {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   color: var(--primary-color);
   font-weight: 600;
-  margin-bottom: 0.5rem;
-  word-break: break-all;
+  margin-bottom: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .score-modal-hint {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.score-rubric {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.score-dual-inputs {
+  margin-bottom: 1rem;
+}
+.score-dim-wrap {
+  margin-bottom: 1rem;
+}
+.score-dim-wrap:last-of-type {
+  margin-bottom: 0.5rem;
+}
+.score-dim-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+.score-total-row {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
 }
 .score-input-wrap {
   margin-bottom: 1.5rem;
+}
+.score-modal-dual .score-input-box {
+  margin-bottom: 0.5rem;
 }
 .score-input-box {
   display: flex;
@@ -741,6 +535,11 @@ onMounted(async () => {
   justify-content: center;
   gap: 0.25rem;
   margin-bottom: 1rem;
+}
+.score-modal-dual .score-input {
+  width: 4rem;
+  height: 2.5rem;
+  font-size: 1.5rem;
 }
 .score-input {
   width: 5rem;
@@ -770,6 +569,9 @@ onMounted(async () => {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+.score-modal-dual .score-slider {
+  margin-bottom: 0.5rem;
 }
 .score-slider {
   width: 100%;
@@ -840,16 +642,6 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 0.75rem;
 }
-
-/* 查看评分明细弹框 */
-.modal-scores .modal-content { max-width: 600px; }
-.modal-scores .scores-list-wrap { display: flex; flex-direction: column; min-height: 0; }
-.modal-scores .scores-list-scroll { max-height: min(400px, 60vh); overflow-y: auto; }
-.modal-scores .score-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--border-color); }
-.modal-scores .score-item:last-child { border-bottom: none; }
-.modal-scores .score-info { flex: 1; min-width: 0; }
-.modal-scores .score-judge { font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
-.modal-scores .score-value { font-weight: 700; color: var(--primary-color); font-size: 1.125rem; margin-bottom: 0.25rem; }
 
 .tip-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 2rem; }
 .tip-modal.active { display: flex; }

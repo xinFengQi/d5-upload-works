@@ -10,19 +10,9 @@ export function getJudgeWorks(params = {}) {
   return request.get('/api/judge/works', { params }).then((res) => res.data);
 }
 
-/** 提交/更新评分 */
-export function submitScore(workId, score) {
-  return request.post('/api/judge/score', { workId, score }).then((res) => res.data);
-}
-
-/** 获取作品分类选项（评委修改分类时使用） */
-export function getCategories() {
-  return request.get('/api/judge/categories').then((res) => res.data);
-}
-
-/** 评委修改作品分类 */
-export function updateWorkCategory(workId, category) {
-  return request.patch(`/api/judge/works/${workId}/category`, { category }).then((res) => res.data);
+/** 提交/更新评分（双维度：创意与概念 0–50，艺术与观感 0–50） */
+export function submitScore(workId, creativityScore, artScore) {
+  return request.post('/api/judge/score', { workId, creativityScore, artScore }).then((res) => res.data);
 }
 
 /** 某作品的评委评分明细（管理员或评委可查看） */

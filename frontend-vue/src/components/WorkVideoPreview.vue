@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="wrapRef"
     class="work-video-preview-wrap"
     :class="{ 'work-video-preview-cell': variant === 'cell', 'work-video-preview-autoplay': autoplay }"
     role="button"
@@ -10,11 +11,11 @@
   >
     <video
       class="work-video-preview-video"
-      :src="work?.fileUrl || work?.file_url"
+      :src="lazySrc"
       :autoplay="autoplay"
       :loop="autoplay"
       muted
-      :preload="autoplay ? 'auto' : 'metadata'"
+      preload="metadata"
       playsinline
     ></video>
     <div class="work-video-preview-overlay">
@@ -24,6 +25,8 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue';
+
 const props = defineProps({
   /** 作品数据，需包含 fileUrl */
   work: {
@@ -45,9 +48,39 @@ const props = defineProps({
 
 const emit = defineEmits(['preview']);
 
+const wrapRef = ref(null);
+/** 懒加载：进入视口后才赋值，video 才请求资源 */
+const lazySrc = ref('');
+let observer = null;
+
+function getFileUrl() {
+  return props.work?.fileUrl || props.work?.file_url || '';
+}
+
 function handleClick() {
   emit('preview', props.work);
 }
+
+onMounted(() => {
+  const url = getFileUrl();
+  if (!url) return;
+  const el = wrapRef.value;
+  if (!el) return;
+  observer = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0];
+      if (entry?.isIntersecting && !lazySrc.value) {
+        lazySrc.value = url;
+        if (observer) observer.disconnect();
+      }
+    },
+    { root: null, rootMargin: '100px', threshold: 0.01 }
+  );
+  observer.observe(el);
+});
+onUnmounted(() => {
+  if (observer) observer.disconnect();
+});
 </script>
 
 <style scoped>
