@@ -1,6 +1,6 @@
 {
   "name": "d5-upload-works-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "作品上传系统 - Node 服务端",
   "main": "server.js",
   "scripts": {
