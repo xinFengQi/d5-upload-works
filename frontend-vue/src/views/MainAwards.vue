@@ -26,6 +26,9 @@
             <div class="main-award-card-score">综合得分 {{ formatScore(work.judgeScore) }}</div>
           </div>
         </div>
+        <button type="button" class="main-award-detail-btn" title="奖励详情" @click="openRewardDetail(getAwardByTitle('十年致敬奖'))">
+          <span class="main-award-detail-icon">🎁</span>
+        </button>
       </section>
 
       <!-- 第二屏：时光雕刻家奖（2名） -->
@@ -45,6 +48,9 @@
             <div class="main-award-card-score">综合得分 {{ formatScore(work.judgeScore) }}</div>
           </div>
         </div>
+        <button type="button" class="main-award-detail-btn" title="奖励详情" @click="openRewardDetail(getAwardByTitle('时光雕刻家奖'))">
+          <span class="main-award-detail-icon">🎁</span>
+        </button>
       </section>
 
       <!-- 第三屏：未来可期奖（3名） -->
@@ -64,6 +70,9 @@
             <div class="main-award-card-score">综合得分 {{ formatScore(work.judgeScore) }}</div>
           </div>
         </div>
+        <button type="button" class="main-award-detail-btn" title="奖励详情" @click="openRewardDetail(getAwardByTitle('未来可期奖'))">
+          <span class="main-award-detail-icon">🎁</span>
+        </button>
       </section>
     </div>
 
@@ -91,6 +100,29 @@
     </div>
 
     <WorkVideoModal :show="videoModalOpen" :work="previewWork" @close="closeVideoModal" />
+
+    <!-- 奖励详情弹框：从配置读取文案 + 多图 -->
+    <div class="reward-detail-modal" :class="{ active: rewardDetailModal.show }" @click.self="closeRewardDetail">
+      <div class="reward-detail-content">
+        <button type="button" class="reward-detail-close" aria-label="关闭" @click="closeRewardDetail">×</button>
+        <template v-if="rewardDetailModal.award">
+          <h2 class="reward-detail-title">{{ rewardDetailModal.award.title }}</h2>
+          <div v-if="rewardDetailModal.award.images?.length" class="reward-detail-images">
+            <img
+              v-for="(url, i) in rewardDetailModal.award.images"
+              :key="i"
+              :src="url"
+              :alt="`奖励图片 ${i + 1}`"
+              class="reward-detail-img"
+              loading="lazy"
+            >
+          </div>
+          <p v-if="rewardDetailModal.award.description" class="reward-detail-desc">{{ rewardDetailModal.award.description }}</p>
+          <p v-else-if="!rewardDetailModal.award.images?.length" class="reward-detail-empty">暂无奖励说明，请在管理后台配置</p>
+        </template>
+        <p v-else class="reward-detail-empty">未找到该奖项配置</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -109,10 +141,12 @@ const loading = ref(true);
 const videoModalOpen = ref(false);
 const previewWork = ref(null);
 const works = ref([]);
+const awards = ref([]);
 const refreshTimer = ref(null);
 const scrollWrap = ref(null);
 const currentPage = ref(0);
 const TOTAL_PAGES = 3;
+const rewardDetailModal = ref({ show: false, award: null });
 /** 滚轮翻页冷却（ms），一次操作只翻一页，避免连续滚轮触发多页 */
 const WHEEL_COOLDOWN_MS = 1200;
 let wheelCooldownUntil = 0;
@@ -153,10 +187,28 @@ function closeVideoModal() {
   videoModalOpen.value = false;
 }
 
+/** 按奖项名称从配置中获取奖项（title: 时光共鸣奖、十年致敬奖、时光雕刻家奖、未来可期奖） */
+function getAwardByTitle(title) {
+  const list = awards.value;
+  if (!Array.isArray(list)) return null;
+  return list.find((a) => a && String(a.title) === title) || null;
+}
+
+function openRewardDetail(award) {
+  rewardDetailModal.value = { show: true, award };
+}
+
+function closeRewardDetail() {
+  rewardDetailModal.value = { show: false, award: null };
+}
+
 async function loadTheme() {
   try {
     const res = await getScreenConfig();
-    if (res.success && res.data?.theme) applyTheme(res.data.theme);
+    if (res.success && res.data) {
+      if (res.data.theme) applyTheme(res.data.theme);
+      if (Array.isArray(res.data.awards)) awards.value = res.data.awards;
+    }
   } catch {}
 }
 
@@ -292,6 +344,7 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 .main-award-section {
+  position: relative;
   height: 100vh;
   min-height: 100vh;
   display: flex;
@@ -302,6 +355,33 @@ onUnmounted(() => {
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
+.main-award-detail-btn {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 2rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.main-award-detail-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.8);
+  transform: scale(1.03);
+}
+.main-award-detail-icon {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
 .main-award-header {
   text-align: center;
   margin-bottom: 2rem;
@@ -419,6 +499,119 @@ onUnmounted(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* 奖励详情弹框 */
+.reward-detail-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+.reward-detail-modal.active {
+  opacity: 1;
+  visibility: visible;
+}
+.reward-detail-content {
+  position: relative;
+  min-width: 70vw;
+  max-width: 90vw;
+  height: 70vh;
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem 2rem 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  color: var(--text-primary, #1e293b);
+}
+.reward-detail-content::-webkit-scrollbar {
+  display: none;
+}
+.reward-detail-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-secondary, #64748b);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: color 0.2s, background 0.2s;
+  z-index: 1;
+}
+.reward-detail-close:hover {
+  color: var(--text-primary, #1e293b);
+  background: var(--bg-secondary, #f1f5f9);
+}
+.reward-detail-title {
+  margin: 0 0 1.25rem;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+  text-align: center;
+  padding-right: 2.5rem;
+  flex-shrink: 0;
+}
+.reward-detail-images {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1rem;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-shrink: 0;
+}
+.reward-detail-images::-webkit-scrollbar {
+  display: none;
+}
+.reward-detail-img {
+  height: 350px;
+  width: auto;
+  max-width: 480px;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+.reward-detail-desc {
+  margin: 0;
+  font-size: 1.875rem;
+  line-height: 1.7;
+  color: var(--text-secondary, #475569);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: center;
+  text-transform: uppercase;
+  flex: 1;
+  min-height: 0;
+}
+.reward-detail-empty {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-secondary, #64748b);
+  text-align: center;
+  text-transform: uppercase;
 }
 
 /* 右下角上一页 / 下一页 */

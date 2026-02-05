@@ -34,12 +34,36 @@ function parseJudges(judgesJson) {
   }
 }
 
+function defaultAwards() {
+  return [
+    { title: '', description: '', images: [] },
+    { title: '', description: '', images: [] },
+    { title: '', description: '', images: [] },
+    { title: '', description: '', images: [] },
+  ];
+}
+
+function parseAwards(awardConfigJson) {
+  if (awardConfigJson == null || awardConfigJson === '') return defaultAwards();
+  try {
+    const arr = typeof awardConfigJson === 'string' ? JSON.parse(awardConfigJson) : awardConfigJson;
+    if (!Array.isArray(arr) || arr.length !== 4) return defaultAwards();
+    return arr.map((item, i) => {
+      const t = item && typeof item === 'object' ? item : {};
+      const imgs = Array.isArray(t.images) ? t.images.filter((u) => typeof u === 'string') : [];
+      return { title: String(t.title ?? ''), description: String(t.description ?? ''), images: imgs };
+    });
+  } catch {
+    return defaultAwards();
+  }
+}
+
 // 获取配置
 router.get('/', (req, res) => {
   try {
     const db = getDb();
     const row = db.prepare(
-      'SELECT grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, updated_at FROM screen_config WHERE id = 1'
+      'SELECT grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, award_config_json, updated_at FROM screen_config WHERE id = 1'
     ).get();
     if (!row) {
       return sendJson(res, createSuccessResponse({
@@ -52,6 +76,7 @@ router.get('/', (req, res) => {
         voteOpenEnd: null,
         scoreOpenStart: null,
         scoreOpenEnd: null,
+        awards: defaultAwards(),
       }));
     }
     const theme = parseTheme(row.theme_json);
@@ -61,6 +86,7 @@ router.get('/', (req, res) => {
     const voteOpenEnd = row.vote_open_end != null ? Number(row.vote_open_end) : null;
     const scoreOpenStart = row.score_open_start != null ? Number(row.score_open_start) : null;
     const scoreOpenEnd = row.score_open_end != null ? Number(row.score_open_end) : null;
+    const awards = parseAwards(row.award_config_json);
     sendJson(res, createSuccessResponse({
       gridLayout: row.grid_layout,
       updatedAt: row.updated_at,
@@ -71,6 +97,7 @@ router.get('/', (req, res) => {
       voteOpenEnd,
       scoreOpenStart,
       scoreOpenEnd,
+      awards,
     }));
   } catch (err) {
     console.error('Get screen config error:', err);
@@ -95,7 +122,7 @@ function parseTime(v) {
 // 保存配置（仅管理员）
 router.post('/', requireAdmin, (req, res) => {
   try {
-    const { gridLayout, theme, maxVotesPerUser, judges, voteOpenStart, voteOpenEnd, scoreOpenStart, scoreOpenEnd } = req.body || {};
+    const { gridLayout, theme, maxVotesPerUser, judges, voteOpenStart, voteOpenEnd, scoreOpenStart, scoreOpenEnd, awards } = req.body || {};
     const allowed = ['2x2', '2x3', '3x2', '3x3', '4x4'];
     if (gridLayout != null && gridLayout !== '' && !allowed.includes(gridLayout)) {
       return sendJson(res, createErrorResponse('Invalid gridLayout. Must be one of: 2x2, 2x3, 3x2, 3x3, 4x4', 'INVALID_REQUEST', 400));
@@ -132,10 +159,21 @@ router.post('/', requireAdmin, (req, res) => {
     if (ss != null && se != null && ss > se) {
       return sendJson(res, createErrorResponse('评分开放开始时间不能晚于结束时间', 'INVALID_REQUEST', 400));
     }
+    let finalAwards = null;
+    if (awards !== undefined) {
+      if (!Array.isArray(awards) || awards.length !== 4) {
+        return sendJson(res, createErrorResponse('奖品配置须为 4 个奖项', 'INVALID_REQUEST', 400));
+      }
+      finalAwards = awards.map((item, i) => {
+        const t = item && typeof item === 'object' ? item : {};
+        const imgs = Array.isArray(t.images) ? t.images.filter((u) => typeof u === 'string') : [];
+        return { title: String(t.title ?? '').slice(0, 200), description: String(t.description ?? '').slice(0, 2000), images: imgs.slice(0, 20) };
+      });
+    }
 
     const db = getDb();
     const existing = db.prepare(
-      'SELECT grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end FROM screen_config WHERE id = 1'
+      'SELECT grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, award_config_json FROM screen_config WHERE id = 1'
     ).get();
     const now = Date.now();
     const finalLayout = gridLayout ?? existing?.grid_layout ?? '2x2';
@@ -148,14 +186,17 @@ router.post('/', requireAdmin, (req, res) => {
     const finalVoteEnd = voteOpenEnd !== undefined ? ve : (existing?.vote_open_end != null ? Number(existing.vote_open_end) : null);
     const finalScoreStart = scoreOpenStart !== undefined ? ss : (existing?.score_open_start != null ? Number(existing.score_open_start) : null);
     const finalScoreEnd = scoreOpenEnd !== undefined ? se : (existing?.score_open_end != null ? Number(existing.score_open_end) : null);
+    const existingAwards = parseAwards(existing?.award_config_json);
+    const finalAwardsResolved = finalAwards !== null ? finalAwards : existingAwards;
+    const awardConfigStr = JSON.stringify(finalAwardsResolved);
 
     const updateResult = db.prepare(
-      'UPDATE screen_config SET grid_layout = ?, theme_json = ?, max_votes_per_user = ?, judges_json = ?, vote_open_start = ?, vote_open_end = ?, score_open_start = ?, score_open_end = ?, updated_at = ? WHERE id = 1'
-    ).run(finalLayout, themeStr, finalMaxVotes, judgesStr, finalVoteStart, finalVoteEnd, finalScoreStart, finalScoreEnd, now);
+      'UPDATE screen_config SET grid_layout = ?, theme_json = ?, max_votes_per_user = ?, judges_json = ?, vote_open_start = ?, vote_open_end = ?, score_open_start = ?, score_open_end = ?, award_config_json = ?, updated_at = ? WHERE id = 1'
+    ).run(finalLayout, themeStr, finalMaxVotes, judgesStr, finalVoteStart, finalVoteEnd, finalScoreStart, finalScoreEnd, awardConfigStr, now);
     if (updateResult.changes === 0) {
       db.prepare(
-        'INSERT INTO screen_config (id, grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).run(finalLayout, themeStr, finalMaxVotes, judgesStr, finalVoteStart, finalVoteEnd, finalScoreStart, finalScoreEnd, now);
+        'INSERT INTO screen_config (id, grid_layout, theme_json, max_votes_per_user, judges_json, vote_open_start, vote_open_end, score_open_start, score_open_end, award_config_json, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(finalLayout, themeStr, finalMaxVotes, judgesStr, finalVoteStart, finalVoteEnd, finalScoreStart, finalScoreEnd, awardConfigStr, now);
     }
 
     sendJson(res, createSuccessResponse({
@@ -168,6 +209,7 @@ router.post('/', requireAdmin, (req, res) => {
       voteOpenEnd: finalVoteEnd,
       scoreOpenStart: finalScoreStart,
       scoreOpenEnd: finalScoreEnd,
+      awards: finalAwardsResolved,
     }));
   } catch (err) {
     console.error('Save screen config error:', err);

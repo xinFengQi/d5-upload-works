@@ -50,6 +50,16 @@ function initSchema(db) {
           db.exec(`ALTER TABLE screen_config ADD COLUMN ${col} INTEGER`);
         }
       }
+      if (!hasColumn(db, 'screen_config', 'award_config_json')) {
+        db.exec('ALTER TABLE screen_config ADD COLUMN award_config_json TEXT');
+        const defaultAwards = JSON.stringify([
+          { title: '', description: '', images: [] },
+          { title: '', description: '', images: [] },
+          { title: '', description: '', images: [] },
+          { title: '', description: '', images: [] },
+        ]);
+        db.prepare('UPDATE screen_config SET award_config_json = ? WHERE id = 1').run(defaultAwards);
+      }
     }
     const hasWorks = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='works'").get();
     if (hasWorks && !hasColumn(db, 'works', 'category')) {

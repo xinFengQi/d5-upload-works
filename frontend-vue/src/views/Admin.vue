@@ -285,6 +285,42 @@
             </div>
             <div v-if="themeMessage" class="config-message">{{ themeMessage }}</div>
           </div>
+
+          <div class="config-card">
+            <div class="config-content">
+              <div class="config-header-inline">
+                <h2 class="config-title">奖品配置</h2>
+                <p class="config-subtitle">配置四个奖项的展示内容：多图 + 一段文案，图片直传 OSS</p>
+              </div>
+              <div class="awards-config-list">
+                <div v-for="(award, awardIndex) in awards" :key="awardIndex" class="award-config-block">
+                  <h3 class="award-config-title">{{ awardTitleLabels[awardIndex] }}</h3>
+                  <div class="config-form-group">
+                    <label class="config-label">展示文案</label>
+                    <textarea v-model.trim="award.description" class="config-input config-textarea" rows="3" maxlength="2000" placeholder="一段话描述该奖项奖励"></textarea>
+                  </div>
+                  <div class="config-form-group">
+                    <label class="config-label">展示图片</label>
+                    <div class="award-images-row">
+                      <div v-for="(imgUrl, imgIndex) in award.images" :key="imgIndex" class="award-image-item">
+                        <img :src="imgUrl" alt="" class="award-image-thumb" loading="lazy">
+                        <button type="button" class="award-image-remove" title="删除" @click="removeAwardImage(awardIndex, imgIndex)">×</button>
+                      </div>
+                      <label class="award-image-upload" :class="{ disabled: awardImageUploading }">
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="award-image-input" :disabled="awardImageUploading" @change="onAwardImageSelect($event, awardIndex)">
+                        <span class="award-image-upload-btn">{{ awardImageUploading ? '上传中...' : '+ 上传图片' }}</span>
+                      </label>
+                    </div>
+                    <p class="config-hint">支持 jpg / png / webp / gif，直传 OSS</p>
+                  </div>
+                </div>
+              </div>
+              <div class="config-actions">
+                <button type="button" class="btn btn-primary" :disabled="awardsSaving" @click="saveAwards">{{ awardsSaving ? '保存中...' : '保存奖品配置' }}</button>
+              </div>
+            </div>
+            <div v-if="awardsMessage" class="config-message">{{ awardsMessage }}</div>
+          </div>
         </div>
       </main>
     </div>
@@ -378,8 +414,12 @@ import { getWorks, deleteWork } from '../api/works';
 import { getVoteUsers } from '../api/vote';
 import { getWorkJudgeScores } from '../api/judge';
 import { getScreenConfig, saveScreenConfig as apiSaveScreenConfig } from '../api/screenConfig';
+import { getStsCredentials } from '../api/upload';
+import OSS from 'ali-oss';
+import { useAuth } from '../composables/useAuth';
 
 const router = useRouter();
+const { user } = useAuth();
 const TOKEN_KEY = 'auth_token';
 
 const activeTab = ref('works');
@@ -420,6 +460,20 @@ const scoresModal = reactive({ show: false, workId: null, titleShort: '', loadin
 const judgeDeleteModal = reactive({ show: false, index: null, email: '' });
 const previewWork = ref(null);
 const videoModalOpen = ref(false);
+
+/** 四个奖项的固定标题（配置页仅展示，不提供编辑；保存时一并写入，便于后续获奖页按名称获取） */
+const awardTitleLabels = ['时光共鸣奖', '十年致敬奖', '时光雕刻家奖', '未来可期奖'];
+
+const defaultAwards = () => [
+  { title: awardTitleLabels[0], description: '', images: [] },
+  { title: awardTitleLabels[1], description: '', images: [] },
+  { title: awardTitleLabels[2], description: '', images: [] },
+  { title: awardTitleLabels[3], description: '', images: [] },
+];
+const awards = ref(defaultAwards());
+const awardsSaving = ref(false);
+const awardsMessage = ref('');
+const awardImageUploading = ref(false);
 
 /** Hash 路由下新开多屏播放的完整 URL */
 const multiScreenHref = computed(() =>
@@ -529,6 +583,13 @@ async function loadScreenConfigData() {
         if (t.primaryLight) theme.primaryLight = t.primaryLight;
         if (t.secondaryColor) theme.secondaryColor = t.secondaryColor;
         applyTheme(theme);
+      }
+      if (Array.isArray(res.data.awards) && res.data.awards.length === 4) {
+        awards.value = res.data.awards.map((a, i) => ({
+          title: awardTitleLabels[i] ?? String(a.title ?? ''),
+          description: String(a.description ?? ''),
+          images: Array.isArray(a.images) ? [...a.images] : [],
+        }));
       }
     }
   } catch {}
@@ -765,6 +826,92 @@ function saveScreenConfigBtn() {
     .catch(() => {
       configMessage.value = '保存失败，请重试';
     });
+}
+
+const AWARD_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const AWARD_IMAGE_MAX = 20;
+
+function randomId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function removeAwardImage(awardIndex, imgIndex) {
+  const list = awards.value;
+  if (awardIndex < 0 || awardIndex >= list.length) return;
+  const a = list[awardIndex];
+  if (!Array.isArray(a.images)) return;
+  a.images.splice(imgIndex, 1);
+}
+
+async function onAwardImageSelect(event, awardIndex) {
+  const file = event.target?.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  const list = awards.value;
+  if (awardIndex < 0 || awardIndex >= list.length) return;
+  const a = list[awardIndex];
+  if (!Array.isArray(a.images)) a.images = [];
+  if (a.images.length >= AWARD_IMAGE_MAX) {
+    showToast(`每个奖项最多 ${AWARD_IMAGE_MAX} 张图片`, 'error');
+    return;
+  }
+  const type = (file.type || '').toLowerCase();
+  if (!AWARD_IMAGE_TYPES.includes(type)) {
+    showToast('请选择 jpg / png / webp / gif 图片', 'error');
+    return;
+  }
+  awardImageUploading.value = true;
+  awardsMessage.value = '';
+  try {
+    const stsRes = await getStsCredentials();
+    if (!stsRes.success || !stsRes.data) {
+      showToast(stsRes.error?.message || '获取上传凭证失败', 'error');
+      return;
+    }
+    const { region, bucket, accessKeyId, accessKeySecret, stsToken } = stsRes.data;
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const objectKey = `prizes/config/${Date.now()}_${randomId()}.${ext}`;
+    const contentType = type || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/jpeg');
+    const client = new OSS({
+      region,
+      bucket,
+      accessKeyId,
+      accessKeySecret,
+      stsToken,
+    });
+    await client.put(objectKey, file, { headers: { 'Content-Type': contentType } });
+    const ossRegion = region.startsWith('oss-') ? region : `oss-${region}`;
+    const fileUrl = `https://${bucket}.${ossRegion}.aliyuncs.com/${objectKey}`;
+    a.images.push(fileUrl);
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.message || '上传失败';
+    showToast(msg, 'error');
+  } finally {
+    awardImageUploading.value = false;
+  }
+}
+
+async function saveAwards() {
+  awardsMessage.value = '';
+  awardsSaving.value = true;
+  const payload = awards.value.map((a, i) => ({
+    title: awardTitleLabels[i],
+    description: a.description ?? '',
+    images: Array.isArray(a.images) ? a.images : [],
+  }));
+  try {
+    const res = await apiSaveScreenConfig({ awards: payload });
+    if (res.success) {
+      awardsMessage.value = '奖品配置已保存';
+      showToast('奖品配置已保存', 'success');
+    } else {
+      awardsMessage.value = res.error?.message || '保存失败';
+    }
+  } catch {
+    awardsMessage.value = '保存失败，请重试';
+  } finally {
+    awardsSaving.value = false;
+  }
 }
 
 function handleLogout() {
@@ -1102,5 +1249,117 @@ onMounted(async () => {
 .score-info { flex: 1; min-width: 0; }
 .score-judge { font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
 .score-value { font-weight: 700; color: var(--primary-color); font-size: 1.125rem; margin-bottom: 0.25rem; }
+
+/* 奖品配置 */
+.awards-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+.award-config-block {
+  padding: 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+}
+.award-config-title {
+  margin: 0 0 1rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.award-config-block .config-form-group {
+  margin-bottom: 1rem;
+}
+.award-config-block .config-form-group:last-of-type {
+  margin-bottom: 0;
+}
+.award-images-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.award-image-item {
+  position: relative;
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+.award-image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.award-image-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.award-image-remove:hover {
+  background: rgba(239, 68, 68, 0.9);
+}
+.award-image-upload {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border: 2px dashed var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--bg-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.award-image-upload:hover:not(.disabled) {
+  border-color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.06);
+}
+.award-image-upload.disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.award-image-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+.award-image-upload-btn {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.award-config-block .config-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.config-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
 
 </style>
