@@ -69,11 +69,11 @@
             >
               <div class="upload-icon">📁</div>
               <div class="upload-text">点击选择文件或拖拽文件到此处</div>
-              <div class="upload-hint">支持格式：mp4, mov, avi | 最大 1GB</div>
+              <div class="upload-hint">支持格式：mp4, mov | 最大 1GB</div>
               <input
                 ref="fileInputRef"
                 type="file"
-                accept="video/mp4,video/quicktime,video/x-msvideo,video/avi"
+                accept="video/mp4,video/quicktime"
                 style="display: none"
                 @change="onFileChange"
               >
@@ -131,7 +131,7 @@ import { getStsCredentials, completeUpload, uploadWork } from '../api/upload';
 import { checkWorkTitle } from '../api/works';
 
 const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
-const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
+const ALLOWED_TYPES = ['video/mp4', 'video/quicktime'];
 
 const router = useRouter();
 const { user, token, checkAuth } = useAuth();
@@ -159,7 +159,7 @@ function triggerFileInput() {
 
 function validateFile(file) {
   if (!ALLOWED_TYPES.includes(file.type)) {
-    showError('不支持的文件格式，请上传 mp4、mov 或 avi 格式的视频');
+    showError('不支持的文件格式，请上传 mp4 或 mov 格式的视频');
     return false;
   }
   if (file.size > MAX_FILE_SIZE) {
@@ -215,7 +215,7 @@ function randomId() {
 function resolveVideoContentType(file, ext) {
   const t = (file?.type || '').trim().toLowerCase();
   if (t && ALLOWED_TYPES.includes(t)) return t;
-  const mimeByExt = { mp4: 'video/mp4', mov: 'video/quicktime', avi: 'video/x-msvideo' };
+  const mimeByExt = { mp4: 'video/mp4', mov: 'video/quicktime' };
   return mimeByExt[ext] || 'video/mp4';
 }
 

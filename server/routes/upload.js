@@ -16,7 +16,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_SIZE },
 });
-const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
+const ALLOWED_TYPES = ['video/mp4', 'video/quicktime'];
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 500;
@@ -147,7 +147,7 @@ router.post('/', requireUser, upload.single('file'), async (req, res) => {
       return sendJson(res, createErrorResponse(`描述最多 ${MAX_DESCRIPTION_LENGTH} 字`, 'DESCRIPTION_TOO_LONG', 400));
     }
     if (!ALLOWED_TYPES.includes(file.mimetype)) {
-      return sendJson(res, createErrorResponse('Invalid file type. Only MP4, MOV, and AVI are allowed', 'INVALID_FILE_TYPE', 400));
+      return sendJson(res, createErrorResponse('Invalid file type. Only MP4 and MOV are allowed', 'INVALID_FILE_TYPE', 400));
     }
     if (file.size > MAX_SIZE) {
       return sendJson(res, createErrorResponse('File size exceeds 1GB', 'FILE_TOO_LARGE', 400));
