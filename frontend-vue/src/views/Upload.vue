@@ -211,6 +211,14 @@ function randomId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/** 解析视频 Content-Type：优先 file.type，否则按扩展名，避免分片上传后 OSS 存成 application/octet-stream */
+function resolveVideoContentType(file, ext) {
+  const t = (file?.type || '').trim().toLowerCase();
+  if (t && ALLOWED_TYPES.includes(t)) return t;
+  const mimeByExt = { mp4: 'video/mp4', mov: 'video/quicktime', avi: 'video/x-msvideo' };
+  return mimeByExt[ext] || 'video/mp4';
+}
+
 /**
  * 直传结果：success 时 data 为完成接口返回值；失败时 reason 为原因，fallback 表示是否可回退到经后端上传
  * @param {(percent: number) => void} onProgress - 0–100，上传与保存阶段会调用
@@ -241,6 +249,8 @@ async function submitWithDirectUpload(file, t2, desc, onProgress) {
   const { region, bucket, accessKeyId, accessKeySecret, stsToken } = stsRes.data;
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
   const objectKey = `works/${user.value.userid}/${Date.now()}_${randomId()}.${ext}`;
+  // 确保 OSS 存正确的 Content-Type，否则大文件分片上传会变成 application/octet-stream，浏览器无法按视频播放
+  const contentType = resolveVideoContentType(file, ext);
   const client = new OSS({
     region,
     bucket,
@@ -251,14 +261,15 @@ async function submitWithDirectUpload(file, t2, desc, onProgress) {
   const size = file.size;
   try {
     if (size > 5 * 1024 * 1024) {
-      // 分片上传：0–90% 为 OSS 上传进度
+      // 分片上传：必须传 mime，否则 OSS 默认为 application/octet-stream，大视频无法播放
       await client.multipartUpload(objectKey, file, {
         partSize: 5 * 1024 * 1024,
         progress: (p) => setProgress((p ?? 0) * 90),
+        mime: contentType,
       });
     } else {
       setProgress(45);
-      await client.put(objectKey, file, { headers: { 'Content-Type': file.type } });
+      await client.put(objectKey, file, { headers: { 'Content-Type': contentType } });
       setProgress(90);
     }
   } catch (err) {
@@ -279,7 +290,7 @@ async function submitWithDirectUpload(file, t2, desc, onProgress) {
       fileUrl,
       fileName: objectKey,
       fileSize: size,
-      fileType: file.type,
+      fileType: contentType,
     });
   } catch (err) {
     const msg = err.response?.data?.error?.message || err.message || '上报作品信息失败';

@@ -34,18 +34,26 @@ class OSSService {
     return `OSS ${this.accessKeyId}:${signature}`;
   }
 
+  /**
+   * 上传时设置的 Cache-Control，便于浏览器缓存视频的 206 响应，减少重复请求。
+   * 仅影响新上传；已有对象需在 OSS 控制台批量设置或通过 copyObject 更新元数据。
+   */
+  static CACHE_CONTROL_VIDEO = 'public, max-age=2592000'; // 30 天
+
   async uploadFile(buffer, key, contentType = 'application/octet-stream') {
     const resource = key.startsWith('/') ? key : `/${key}`;
     const date = new Date().toUTCString();
     const headers = { date, 'content-type': contentType };
     const authorization = this._sign('PUT', resource, headers);
     const url = `https://${this.endpoint}${resource}`;
+    const isVideo = (contentType || '').toLowerCase().startsWith('video/');
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
         Authorization: authorization,
         Date: date,
         'Content-Type': contentType,
+        ...(isVideo && { 'Cache-Control': OSSService.CACHE_CONTROL_VIDEO }),
       },
       body: buffer,
     });
