@@ -99,15 +99,6 @@
             autocomplete="off"
             aria-label="搜索作品"
           >
-          <button
-            v-if="searchKeyword"
-            type="button"
-            class="home-search-clear"
-            aria-label="清空"
-            @click="searchKeyword = ''"
-          >
-            ×
-          </button>
         </div>
       </div>
 
