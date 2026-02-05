@@ -12,7 +12,7 @@
       <!-- 第一屏：十年致敬奖（1名） -->
       <section class="main-award-section">
         <div class="main-award-header">
-          <h1 class="main-award-title">十年之约 · 我的D5的未来对话</h1>
+          <h1 class="main-award-title">十年之约 · 我和D5的未来对话</h1>
           <p class="main-award-name">十年致敬奖获得者</p>
           <p class="main-award-tagline">致敬坚守，定义未来。</p>
         </div>
@@ -31,7 +31,7 @@
       <!-- 第二屏：时光雕刻家奖（2名） -->
       <section class="main-award-section">
         <div class="main-award-header">
-          <h1 class="main-award-title">十年之约 · 我的D5的未来对话</h1>
+          <h1 class="main-award-title">十年之约 · 我和D5的未来对话</h1>
           <p class="main-award-name">时光雕刻家奖获得者</p>
           <p class="main-award-tagline">用代码与光影，雕琢时光的形状。</p>
         </div>
@@ -50,7 +50,7 @@
       <!-- 第三屏：未来可期奖（3名） -->
       <section class="main-award-section">
         <div class="main-award-header">
-          <h1 class="main-award-title">十年之约 · 我的D5的未来对话</h1>
+          <h1 class="main-award-title">十年之约 · 我和D5的未来对话</h1>
           <p class="main-award-name">未来可期奖获得者</p>
           <p class="main-award-tagline">从创意种子，到价值果实。</p>
         </div>
@@ -298,7 +298,6 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1.5rem;
   box-sizing: border-box;
   scroll-snap-align: start;
   scroll-snap-stop: always;
@@ -309,18 +308,18 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .main-award-title {
-  font-size: clamp(1.25rem, 4vh, 2.5rem);
+  font-size: clamp(1.5rem, 8vh, 3rem);
   font-weight: 800;
   margin-bottom: 0.5rem;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 .main-award-name {
-  font-size: clamp(1rem, 2.5vh, 1.5rem);
+  font-size: clamp(1rem, 4vh, 2rem);
   opacity: 0.95;
   margin-bottom: 0.5rem;
 }
 .main-award-tagline {
-  font-size: clamp(0.875rem, 1.8vh, 1rem);
+  font-size: clamp(0.875rem, 2vh, 1.25rem);
   opacity: 0.85;
   font-style: italic;
   margin-bottom: 0;
@@ -331,7 +330,7 @@ onUnmounted(() => {
   justify-content: center;
   align-items: stretch;
   gap: 2rem;
-  max-width: 1600px;
+  max-width: 100vw;
   width: 100%;
   padding: 0 1rem;
 }
@@ -379,7 +378,7 @@ onUnmounted(() => {
   color: var(--text-primary);
   flex: 1;
   min-width: 0;
-  max-width: 420px;
+  max-width: 30vw;
   display: flex;
   flex-direction: column;
 }

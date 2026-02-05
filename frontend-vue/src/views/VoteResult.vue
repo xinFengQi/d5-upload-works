@@ -7,7 +7,7 @@
     <div class="screen-container">
       <div class="content-wrapper">
         <div class="screen-header">
-          <h1 class="screen-title">十年之约 · 我的D5的未来对话</h1>
+          <h1 class="screen-title">十年之约 · 我和D5的未来对话</h1>
           <p class="screen-subtitle">{{ awardName }}获得者</p>
           <p class="screen-tagline">人心所向，即是时光的方向。</p>
         </div>

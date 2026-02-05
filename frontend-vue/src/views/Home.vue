@@ -83,7 +83,7 @@
 
     <main class="main-content">
       <div class="page-header">
-        <h1 class="page-title">十年之约 · 我的D5的未来对话</h1>
+        <h1 class="page-title">十年之约 · 我和D5的未来对话</h1>
         <p class="page-subtitle">释放你的想象力，分享你的创作</p>
         <p class="page-tagline">进入心流之境，体验创作自由</p>
       </div>
