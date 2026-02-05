@@ -31,6 +31,18 @@
         <div class="video-info" :ref="(el) => setInfoRef(cellIndex, el)"></div>
       </div>
     </div>
+    <button
+      v-if="initialized && totalCells > 0"
+      type="button"
+      class="sound-toggle"
+      :class="{ muted: soundMuted }"
+      :title="soundMuted ? '点击开启声音' : '点击静音'"
+      :aria-label="soundMuted ? '开启声音' : '静音'"
+      @click="toggleSound"
+    >
+      <span v-if="soundMuted" class="sound-icon">🔇</span>
+      <span v-else class="sound-icon">🔊</span>
+    </button>
   </div>
 </template>
 
@@ -49,6 +61,7 @@ const layoutMap = {
 };
 
 const POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 分钟
+const STORAGE_KEY_SOUND = 'multi_screen_sound_muted';
 
 const loading = ref(true);
 const initialized = ref(false);
@@ -58,6 +71,22 @@ const cellQueues = ref([]);
 const playingCells = ref(new Set());
 const gridRef = ref(null);
 const infoRefs = ref({});
+/** 是否静音：默认 true 以满足自动播放策略，用户可点击按钮开启声音 */
+const soundMuted = ref(true);
+
+function toggleSound() {
+  soundMuted.value = !soundMuted.value;
+  try {
+    localStorage.setItem(STORAGE_KEY_SOUND, soundMuted.value ? '1' : '0');
+  } catch {}
+  applyMutedToAllVideos();
+}
+
+function applyMutedToAllVideos() {
+  if (!gridRef.value) return;
+  const videos = gridRef.value.querySelectorAll('.video-cell video');
+  videos.forEach((v) => { v.muted = soundMuted.value; });
+}
 
 const parts = computed(() => (config.value.gridLayout || '2x2').split('x').map(Number));
 const rows = computed(() => parts.value[0] || 2);
@@ -117,6 +146,7 @@ function playNextInCell(cellIndex) {
   if (!video) return;
 
   video.src = work.fileUrl;
+  video.muted = soundMuted.value;
   video.load();
 
   const title = work.title || '未命名作品';
@@ -198,6 +228,10 @@ async function loadData() {
 
 let pollTimer = null;
 onMounted(() => {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_SOUND);
+    soundMuted.value = v !== '0' && v !== 'false';
+  } catch {}
   loadData();
   pollTimer = setInterval(loadData, POLL_INTERVAL_MS);
 });
@@ -336,5 +370,33 @@ onUnmounted(() => {
 }
 .video-info-heart {
   font-size: 0.65rem;
+}
+
+.sound-toggle {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 2000;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+.sound-toggle:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.05);
+}
+.sound-toggle .sound-icon {
+  font-size: 1.5rem;
+}
+.sound-toggle.muted .sound-icon {
+  opacity: 0.8;
 }
 </style>

@@ -21,6 +21,7 @@
         muted
         playsinline
         autoplay
+        controls
         @ended="playNext"
         @error="onVideoError"
       ></video>
