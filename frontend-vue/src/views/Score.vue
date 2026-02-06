@@ -121,11 +121,18 @@
       <div class="modal-content score-modal-content score-modal-dual">
         <h3 class="modal-title">专业评审评分（满分100分）</h3>
         <p class="score-modal-work-title" :title="scoreModal.title">「{{ scoreModal.title }}」</p>
-        <p class="score-modal-hint">创意与概念、艺术与观感各 0–50 分，多名评委取平均。</p>
-        <div class="score-rubric">创意与概念：优秀40–50 良好30–40 一般20–30 待提升0–20　艺术与观感：同上</div>
         <div class="score-dual-inputs">
           <div class="score-dim-wrap">
             <label class="score-dim-label">创意与概念（0–50）</label>
+            <div class="score-rubric-section">
+              <h4 class="score-rubric-head">评分参考</h4>
+              <ul class="score-rubric-list">
+                <li><strong>优秀（40-50分）：</strong>主题深刻新颖，叙事巧妙，有强烈的原创性与思想性，能引发深度共鸣或思考。</li>
+                <li><strong>良好（30-40分）：</strong>主题清晰，故事完整有一定新意，逻辑自洽，能有效传达情感或信息。</li>
+                <li><strong>一般（20-30分）：</strong>主题普通，叙事平稳但无惊喜，或创意构思与执行存在脱节。</li>
+                <li><strong>待提升（0-20分）：</strong>主题模糊，叙事混乱，或存在明显抄袭、套用痕迹。</li>
+              </ul>
+            </div>
             <div class="score-input-box">
               <input
                 v-model.number="scoreModal.creativityScore"
@@ -142,6 +149,15 @@
           </div>
           <div class="score-dim-wrap">
             <label class="score-dim-label">艺术与观感（0–50）</label>
+            <div class="score-rubric-section">
+              <h4 class="score-rubric-head">评分参考</h4>
+              <ul class="score-rubric-list">
+                <li><strong>优秀（40-50分）：</strong>画面精美、风格统一、富有电影感或独特美学；音画同步精准，音乐音效极具感染力；节奏流畅，完成度极高。</li>
+                <li><strong>良好（30-40分）：</strong>画面整洁美观，视听语言基本准确，音效搭配合理，整体观感舒适完整。</li>
+                <li><strong>一般（20-30分）：</strong>画面和声音质量一般，可能存在卡顿、跳帧、音画不同步等问题，完成度尚可但粗糙。</li>
+                <li><strong>待提升（0-20分）：</strong>视听体验差，画面模糊混乱，声音嘈杂或缺失，严重影响观看。</li>
+              </ul>
+            </div>
             <div class="score-input-box">
               <input
                 v-model.number="scoreModal.artScore"
@@ -558,7 +574,8 @@ onMounted(async () => {
   padding: 1.75rem;
 }
 .score-modal-content.score-modal-dual {
-  max-width: 520px;
+  max-width: 680px;
+  width: 90vw;
   max-height: 88vh;
   overflow-y: auto;
   padding: 1.25rem 1.5rem;
@@ -578,19 +595,33 @@ onMounted(async () => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.score-modal-hint {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
+.score-dim-wrap .score-rubric-section {
   margin-bottom: 0.75rem;
-}
-.score-rubric {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-bottom: 1rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.75rem;
   background: var(--bg-secondary);
   border-radius: 8px;
-  line-height: 1.4;
+}
+.score-rubric-head {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.3rem;
+}
+.score-rubric-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.score-rubric-list li {
+  margin-bottom: 0.2rem;
+}
+.score-rubric-list li:last-child {
+  margin-bottom: 0;
+}
+.score-rubric-list strong {
+  color: var(--text-primary);
 }
 .score-dual-inputs {
   margin-bottom: 1rem;
