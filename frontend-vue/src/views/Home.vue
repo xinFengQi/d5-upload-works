@@ -485,6 +485,11 @@ async function loadWorks(opts = {}) {
       seenIds.add(id);
       return true;
     });
+    // 打乱顺序，随机展示
+    for (let i = uniqueItems.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [uniqueItems[i], uniqueItems[j]] = [uniqueItems[j], uniqueItems[i]];
+    }
     works.value = uniqueItems.map((w) => toDisplayItem(w));
 
     if (token) {
