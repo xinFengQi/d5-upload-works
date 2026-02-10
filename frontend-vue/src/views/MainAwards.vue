@@ -23,7 +23,7 @@
             </div>
             <div class="main-award-card-title" :title="work.title || '未命名作品'">{{ work.title || '未命名作品' }}</div>
             <div class="main-award-card-creator" :title="work.creatorName || '未知'">{{ work.creatorName || '未知' }}</div>
-            <div class="main-award-card-score">综合得分 {{ formatScore(work.judgeScore) }}</div>
+            <div class="main-award-card-score">综合得分 {{ formatScore(work.finalScore) }}</div>
           </div>
         </div>
         <button type="button" class="main-award-detail-btn" title="奖励详情" @click="openRewardDetail(getAwardByTitle('十年致敬奖'))">
@@ -45,7 +45,7 @@
             </div>
             <div class="main-award-card-title" :title="work.title || '未命名作品'">{{ work.title || '未命名作品' }}</div>
             <div class="main-award-card-creator" :title="work.creatorName || '未知'">{{ work.creatorName || '未知' }}</div>
-            <div class="main-award-card-score">综合得分 {{ formatScore(work.judgeScore) }}</div>
+            <div class="main-award-card-score">综合得分 {{ formatScore(work.finalScore) }}</div>
           </div>
         </div>
         <button type="button" class="main-award-detail-btn" title="奖励详情" @click="openRewardDetail(getAwardByTitle('时光雕刻家奖'))">
@@ -67,7 +67,7 @@
             </div>
             <div class="main-award-card-title" :title="work.title || '未命名作品'">{{ work.title || '未命名作品' }}</div>
             <div class="main-award-card-creator" :title="work.creatorName || '未知'">{{ work.creatorName || '未知' }}</div>
-            <div class="main-award-card-score">综合得分 {{ formatScore(work.judgeScore) }}</div>
+            <div class="main-award-card-score">综合得分 {{ formatScore(work.finalScore) }}</div>
           </div>
         </div>
         <button type="button" class="main-award-detail-btn" title="奖励详情" @click="openRewardDetail(getAwardByTitle('未来可期奖'))">
