@@ -63,6 +63,14 @@
           <div class="works-table-container">
             <div class="table-header">
               <h2 class="table-title">作品列表</h2>
+              <button
+                type="button"
+                class="btn btn-outline admin-works-export-btn"
+                :disabled="worksLoading || works.length === 0 || exportWorksLoading"
+                @click="handleExportWorks"
+              >
+                {{ exportWorksLoading ? '导出中...' : '导出 CSV' }}
+              </button>
             </div>
             <div v-if="worksLoading" class="loading">
               <div class="spinner"></div>
@@ -410,7 +418,7 @@ import '@vuepic/vue-datepicker/dist/main.css';
 import { zhCN } from 'date-fns/locale';
 import WorkVideoModal from '../components/WorkVideoModal.vue';
 import request from '../api/request';
-import { getWorks, deleteWork } from '../api/works';
+import { getWorks, deleteWork, downloadWorksCsv } from '../api/works';
 import { getVoteUsers } from '../api/vote';
 import { getWorkJudgeScores } from '../api/judge';
 import { getScreenConfig, saveScreenConfig as apiSaveScreenConfig } from '../api/screenConfig';
@@ -426,6 +434,7 @@ const activeTab = ref('works');
 const adminLoggedIn = ref(false);
 const works = ref([]);
 const worksLoading = ref(true);
+const exportWorksLoading = ref(false);
 const gridLayout = ref('2x2');
 const maxVotesPerUser = ref(1);
 const maxVotesMessage = ref('');
@@ -547,6 +556,19 @@ function showToast(message, type = 'success') {
   toast.icon = type === 'success' ? '✓' : '✕';
   toast.show = true;
   setTimeout(() => { toast.show = false; }, 3000);
+}
+
+async function handleExportWorks() {
+  if (works.value.length === 0 || exportWorksLoading.value) return;
+  exportWorksLoading.value = true;
+  try {
+    await downloadWorksCsv();
+    showToast('导出成功', 'success');
+  } catch (e) {
+    showToast(e?.message || '导出失败，请重试', 'error');
+  } finally {
+    exportWorksLoading.value = false;
+  }
 }
 
 async function loadWorksList() {
@@ -1202,6 +1224,14 @@ onMounted(async () => {
 }
 
 #adminContent { display: block; }
+
+.admin-page .works-table-container .table-header {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.admin-works-export-btn {
+  flex-shrink: 0;
+}
 
 /* 作品列表区域：支持横向滚动，标题过长时省略 */
 .admin-page .works-table-container {

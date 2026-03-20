@@ -67,6 +67,96 @@ router.get('/', (req, res) => {
   }
 });
 
+/** CSV 单元格转义 */
+function escapeCsvField(value) {
+  if (value == null || value === '') return '';
+  const s = String(value);
+  if (/[",\r\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function formatExportDateTime(ts) {
+  if (ts == null || ts === '') return '';
+  const n = Number(ts);
+  if (Number.isNaN(n)) return '';
+  return new Date(n).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
+
+// 导出作品列表为 CSV（仅管理员，含全部作品，UTF-8 BOM 便于 Excel 打开中文）
+router.get('/export', requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT w.id, w.userid AS userId, w.title, w.description, w.file_url AS fileUrl, w.file_name AS fileName, w.file_size AS fileSize, w.file_type AS fileType, w.creator_name AS creatorName, w.created_at AS createdAt, w.updated_at AS updatedAt,
+             COALESCE(v.cnt, 0) AS voteCount,
+             j.score AS judgeAvgScore, COALESCE(j.judge_count, 0) AS judgeCount
+      FROM works w
+      LEFT JOIN (SELECT work_id, COUNT(*) AS cnt FROM votes GROUP BY work_id) v ON w.id = v.work_id
+      LEFT JOIN work_judge_score j ON w.id = j.work_id
+      ORDER BY w.created_at DESC
+    `).all();
+    const headerCols = [
+      '作品ID',
+      '作品标题',
+      '简介',
+      '创作者',
+      '用户ID',
+      '投票数',
+      '评委均分',
+      '评委人数',
+      '文件类型',
+      '文件名',
+      '文件大小(字节)',
+      '视频地址',
+      '上传时间',
+      '更新时间',
+    ];
+    const lines = [headerCols.join(',')];
+    for (const r of rows) {
+      const judgeAvg =
+        r.judgeAvgScore != null && !Number.isNaN(Number(r.judgeAvgScore))
+          ? String(Math.round(Number(r.judgeAvgScore) * 10) / 10)
+          : '';
+      const line = [
+        escapeCsvField(r.id),
+        escapeCsvField(r.title),
+        escapeCsvField(r.description),
+        escapeCsvField(r.creatorName),
+        escapeCsvField(r.userId),
+        escapeCsvField(r.voteCount),
+        escapeCsvField(judgeAvg),
+        escapeCsvField(r.judgeCount),
+        escapeCsvField(r.fileType),
+        escapeCsvField(r.fileName),
+        escapeCsvField(r.fileSize),
+        escapeCsvField(r.fileUrl),
+        escapeCsvField(formatExportDateTime(r.createdAt)),
+        escapeCsvField(formatExportDateTime(r.updatedAt)),
+      ].join(',');
+      lines.push(line);
+    }
+    const csv = `\uFEFF${lines.join('\r\n')}`;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `works_export_${dateStr}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Export works error:', err);
+    sendJson(res, createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500));
+  }
+});
+
 // Top 作品（按投票数）
 router.get('/top', (req, res) => {
   try {
